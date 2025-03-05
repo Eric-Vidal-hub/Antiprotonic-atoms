@@ -85,7 +85,7 @@ def hamiltonian(xx):
                 pair_pot += 1.0 / delta_r
                 # For identical elecrons
                 if e_spin[i] == e_spin[j]:
-                    print("Identical electrons")
+                    # print("Identical electrons")
                     delta_p = 0.5 * np.sqrt((px[i] - px[j])**2 + (py[i] - py[j])**2 + (pz[i] - pz[j])**2)
                     pauli_pot += (xi_p**2 / (4 * alpha * delta_r**2)) * np.exp(alpha * (1 - (delta_r * delta_p / xi_p)**4))
         h_multi = pair_pot + pauli_pot
