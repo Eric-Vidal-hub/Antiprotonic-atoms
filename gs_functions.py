@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import minimize
+
 
 # Define a penalty potential to enforce the Heisenberg constraint: r * p ~ 1.
 def heisenberg_potential(r, p, gamma=10.0):
@@ -32,12 +32,3 @@ def hamiltonian(x):
     
     # Total energy
     return T + V_coulomb + V_heisenberg
-
-# Initial guess for the configuration: [r, p]
-x0 = [1.0, 1.0]
-
-# Use a simple optimization routine to minimize the Hamiltonian.
-result = minimize(hamiltonian, x0, method='Nelder-Mead')
-
-print("Optimal configuration (r, p):", result.x)
-print("Ground state energy:", result.fun)
