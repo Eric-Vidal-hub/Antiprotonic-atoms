@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 # INI CONFIG GENERATOR
 def generate_initial_config(e_num):
     half_e_num = e_num // 2 + e_num % 2  # Rounded up half number of electrons
+
     r0 = rng.uniform(1, 1.2, half_e_num)    # Ini radial positions
     theta0 = rng.uniform(0, np.pi, half_e_num)  # Ini polar angles
     phi0 = rng.uniform(0, 2 * np.pi, half_e_num)  # Ini azimuthal angles
@@ -19,16 +20,16 @@ def generate_initial_config(e_num):
     phi0 = np.concatenate((phi0, phi0[:e_num - half_e_num] + np.pi))
 
     p0 = rng.uniform(1, 1.2, half_e_num)    # Ini radial momenta
-    theta_p0 = rng.uniform(0, np.pi, half_e_num)  # Ini polar angles for p
-    phi_p0 = rng.uniform(0, 2 * np.pi, half_e_num)  # Ini azimuthal angles for p
+    theta_p0 = rng.uniform(0, np.pi, half_e_num)  # Ini polar angles
+    phi_p0 = rng.uniform(0, 2 * np.pi, half_e_num)  # Ini azimuthal angles
     # Mirror the other half
     p0 = np.concatenate((p0, p0[:e_num - half_e_num]))
-    theta_p0 = np.concatenate((theta_p0, np.pi - theta_p0[:e_num - half_e_num]))
+    theta_p0 = np.concatenate((theta_p0, np.pi - theta_p0[:e_num -
+                                                          half_e_num]))
     phi_p0 = np.concatenate((phi_p0, phi_p0[:e_num - half_e_num] + np.pi))
+    return np.concatenate((r0, theta0, phi0, p0, theta_p0, phi_p0))
 
-    # Initial configuration
-    ini_config = np.concatenate((r0, theta0, phi0, p0, theta_p0, phi_p0))
-    return ini_config
+
 # _____________________________________________________________________________
 # EFFECTIVE FMD HAMILTONIAN (a.u.)
 def hamiltonian(ini_c):
@@ -108,21 +109,22 @@ seed = 1234
 rng = np.random.default_rng(seed)
 
 # List of e_num values to try
-e_num_values = [2, 3, 4, 5]
+e_num_values = [2, 3, 4]
 
 # Open the CSV file to write the results
 with open('results.csv', 'w', newline='') as csvfile:
-    fieldnames = ['e_num', 'optimizer', 'optimal_configuration', 'ground_state_energy']
+    fieldnames = ['e_num', 'optimizer', 'optimal_configuration',
+                  'ground_state_energy']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
     for e_num in e_num_values:
         # Generate electron spins for arbitrary e_num
         e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
-        
+
         # Generate initial configuration
         ini_config = generate_initial_config(e_num)
-        
+
         # Use each optimizer to minimize the Hamiltonian
         for method in optimizers:
             result = minimize(hamiltonian, ini_config, method=method)
@@ -147,7 +149,6 @@ for optimizer in df['optimizer'].unique():
 
 plt.xlabel('Number of Electrons (e_num)')
 plt.ylabel('Ground State Energy')
-plt.title('Ground State Energy vs Number of Electrons for Different Optimizers')
 plt.legend()
 plt.grid(True)
 plt.savefig('ground_state_energy_plot.png')
