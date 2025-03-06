@@ -32,25 +32,25 @@ def generate_initial_config(e_num):
 
 # _____________________________________________________________________________
 # EFFECTIVE FMD HAMILTONIAN (a.u.)
-def hamiltonian(ini_c):
-    rr = np.zeros(e_num)
-    theta = np.zeros(e_num)
-    phi = np.zeros(e_num)
-    pp = np.zeros(e_num)
-    theta_p = np.zeros(e_num)
-    phi_p = np.zeros(e_num)
-    for i in range(e_num):
+def hamiltonian(ini_c, num_electrons, electron_spin):
+    rr = np.zeros(num_electrons)
+    theta = np.zeros(num_electrons)
+    phi = np.zeros(num_electrons)
+    pp = np.zeros(num_electrons)
+    theta_p = np.zeros(num_electrons)
+    phi_p = np.zeros(num_electrons)
+    for i in range(num_electrons):
         rr[i] = ini_c[i]
-        theta[i] = ini_c[e_num + i]
-        phi[i] = ini_c[2 * e_num + i]
-        pp[i] = ini_c[3 * e_num + i]
-        theta_p[i] = ini_c[4 * e_num + i]
-        phi_p[i] = ini_c[5 * e_num + i]
+        theta[i] = ini_c[num_electrons + i]
+        phi[i] = ini_c[2 * num_electrons + i]
+        pp[i] = ini_c[3 * num_electrons + i]
+        theta_p[i] = ini_c[4 * num_electrons + i]
+        phi_p[i] = ini_c[5 * num_electrons + i]
 
     # _____________________________________________________________________________
     # ONE-BODY POTENTIALS
     kin_pot = np.sum(0.5 * pp**2)   # Kinetic energy
-    nuc_pot = -np.sum(e_num / rr)      # Nuclear-e Coulomb potential
+    nuc_pot = -np.sum(num_electrons / rr)      # Nuclear-e Coulomb potential
     # Heisenberg constraint potential to enforce: r_i * p_i >= xi_H.
     heisen_pot = np.sum(xi_h**2 * np.exp(alpha * (1 - (rr * pp / xi_h)**4))
                         / (4 * alpha * rr**2))
@@ -58,7 +58,7 @@ def hamiltonian(ini_c):
     # _____________________________________________________________________________
     # TWO-BODY POTENTIALS for multi-e systems
     h_multi = 0.0
-    if e_num > 1:
+    if num_electrons > 1:
         pauli_pot = 0.0     # Pauli exclusion constraint potential
         pair_pot = 0.0      # Coulomb potential between electrons
         # Convert spherical coordinates to Cartesian coordinates
@@ -69,15 +69,15 @@ def hamiltonian(ini_c):
         px = pp * np.sin(theta_p) * np.cos(phi_p)
         py = pp * np.sin(theta_p) * np.sin(phi_p)
         pz = pp * np.cos(theta_p)
-        for i in range(e_num):
-            for j in range(i + 1, e_num):
+        for i in range(num_electrons):
+            for j in range(i + 1, num_electrons):
                 delta_r = np.sqrt((x_coord[i] - x_coord[j])**2 +
                                   (y_coord[i] - y_coord[j])**2 +
                                   (z_coord[i] - z_coord[j])**2)
                 # Coulomb potential for electron pairs
                 pair_pot += 1.0 / delta_r
                 # For identical electrons
-                if e_spin[i] == e_spin[j]:
+                if electron_spin[i] == electron_spin[j]:
                     delta_p = 0.5 * np.sqrt((px[i] - px[j])**2 +
                                             (py[i] - py[j])**2 +
                                             (pz[i] - pz[j])**2)
@@ -127,7 +127,7 @@ with open('results.csv', 'w', newline='') as csvfile:
 
         # Use each optimizer to minimize the Hamiltonian
         for method in optimizers:
-            result = minimize(hamiltonian, ini_config, method=method)
+            result = minimize(hamiltonian, ini_config, args=(e_num, e_spin), method=method)
             writer.writerow({
                 'e_num': e_num,
                 'optimizer': method,
