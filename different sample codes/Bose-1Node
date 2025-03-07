@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --array=0-62
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=249G
+#SBATCH --time=60:00:00
+#SBATCH -p epyc-256
+
+module load anaconda3/latest
+
+source activate ~/.conda/envs/hiwi-polaron
+
+cd ~/Hiwi-work/
+
+for ((z=0;z<=15;z++))
+do
+        python simulation_HPC.py /scratch/vym17xaj/ssm_2pow8_alphas1to2_full_betas_iter1e6_withLESSNoise $(bc <<< "(($SLURM_ARRAY_TASK_ID)*16)+$z") &
+done
+wait

@@ -127,7 +127,8 @@ class HamiltonianOptimizer:
         plt.savefig('ground_state_energy_plot.png')
         plt.show()
 
-
+# _____________________________________________________________
+# SEPARATE FUNCTION
 def optimize(optimizer, e_num_values):
     # Open the CSV file to write the results
     with open('results.csv', 'w', newline='') as csvfile:
