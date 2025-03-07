@@ -1,0 +1,180 @@
+import os
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Function to read NIST data
+def read_nist_data(directory):
+    nist_etot_values = []
+    atomic_numbers = []
+
+    for filename in os.listdir(directory):
+        if os.path.isfile(os.path.join(directory, filename)):
+            atomic_number = int(re.findall(r'\d+', filename)[0])
+            with open(os.path.join(directory, filename), 'r') as file:
+                for line in file:
+                    if "Etot" in line:
+                        etot = float(line.split('=')[1].strip())
+                        nist_etot_values.append(-etot)
+                        atomic_numbers.append(atomic_number)
+                        break
+
+    return dict(zip(atomic_numbers, nist_etot_values))
+
+# Function to plot ground state energy for each e_num and optimizer
+def plot_results(df, output_dir):
+    plt.figure(figsize=(10, 6))
+    for optimizer in df['optimizer'].unique():
+        subset = df[df['optimizer'] == optimizer]
+        plt.plot(subset['e_num'], subset['ground_state_energy'], label=optimizer)
+
+    plt.xlabel('Number of Electrons (e_num)')
+    plt.ylabel('Ground State Energy')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, 'fig_gs_e_optimizers.png'))
+    plt.close()  # Close the figure to avoid displaying it
+
+# Function to plot electron distribution
+def plot_electron_distribution(df, output_dir):
+    r0_values = {}
+    p0_values = {}
+    e_num_values = {}
+
+    for optimizer in df['optimizer'].unique():
+        subset = df[df['optimizer'] == optimizer]
+        
+        r0_values[optimizer] = []
+        p0_values[optimizer] = []
+        e_num_values[optimizer] = []
+
+        for index, row in subset.iterrows():
+            e_num = int(row['e_num'])
+            optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'), sep=' ')
+            r0 = optimal_config[:e_num]
+            p0 = optimal_config[3 * e_num:4 * e_num]
+            
+            # Store the values
+            r0_values[optimizer].append((e_num, r0))
+            p0_values[optimizer].append((e_num, p0))
+            e_num_values[optimizer].append(e_num)
+
+    # Plot r0 and p0 for each optimizer
+    for optimizer in df['optimizer'].unique():
+        fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=True)
+
+        for e_num, r0 in r0_values[optimizer]:
+            for i, value in enumerate(r0):
+                marker = '^' if i % 2 == 0 else 'v'
+                axs[0].plot(e_num, value, marker=marker, linestyle='None', label=f'e_num={e_num}' if i == 0 else "")
+        axs[0].set_ylabel('r0')
+        axs[0].set_title(f'Optimal r0 for {optimizer}')
+        axs[0].grid(True)
+        axs[0].legend()
+
+        for e_num, p0 in p0_values[optimizer]:
+            for i, value in enumerate(p0):
+                marker = '^' if i % 2 == 0 else 'v'
+                axs[1].plot(e_num, value, marker=marker, linestyle='None', label=f'e_num={e_num}' if i == 0 else "")
+        axs[1].set_xlabel('e_num')
+        axs[1].set_ylabel('p0')
+        axs[1].set_title(f'Optimal p0 for {optimizer}')
+        axs[1].grid(True)
+        axs[1].legend()
+
+        plt.savefig(os.path.join(output_dir, f'fig_optimal_r0_p0_{optimizer}.png'))
+        plt.close(fig)  # Close the figure to avoid displaying it
+
+# Function to plot ground state energy
+def plot_ground_state_energy(df, nist_data, output_dir):
+    labelfontsize = 18
+    tickfontsize = 14
+    plt.figure(figsize=(10, 6))
+    # NIST data
+    atomic_numbers = list(nist_data.keys())
+    minus_etot_values = list(nist_data.values())
+    plt.plot(atomic_numbers, minus_etot_values, 'o', markersize=3, linestyle='None', label='NIST-LDA')
+
+    # Calculated data
+    for optimizer in df['optimizer'].unique():
+        subset = df[df['optimizer'] == optimizer]
+        e_num_values = subset['e_num'].values
+        ground_state_energies = -subset['ground_state_energy'].values
+        plt.plot(e_num_values, ground_state_energies, 'o', markersize=3, linestyle='None', label=optimizer)
+
+    plt.xlabel(r'$Z$', fontsize=labelfontsize)
+    plt.ylabel(r'$-E_{GS}$ (a.u.)', fontsize=labelfontsize)
+    plt.xticks(fontsize=tickfontsize)
+    plt.yticks(fontsize=tickfontsize)
+    plt.yscale('log')
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, 'fig_gs_e_vs_z.png'))
+    plt.close()  # Close the figure to avoid displaying it
+
+# Function to plot relative error
+def plot_relative_error(df, nist_data, output_dir):
+    labelfontsize = 18
+    tickfontsize = 14
+    plt.figure(figsize=(10, 6))
+
+    # Calculated data
+    for optimizer in df['optimizer'].unique():
+        subset = df[df['optimizer'] == optimizer]
+        e_num_values = subset['e_num'].values
+        ground_state_energies = -subset['ground_state_energy'].values
+        
+        # Calculate errors
+        errors = []
+        for e_num, gs_energy in zip(e_num_values, ground_state_energies):
+            if e_num in nist_data:
+                error = 100 * np.abs((gs_energy - nist_data[e_num]) / nist_data[e_num])
+                errors.append(error)
+            else:
+                errors.append(None)  # for cases where NIST data is not available
+        
+        # Filter out None values
+        filtered_e_num_values = [e_num for e_num, error in zip(e_num_values, errors) if error is not None]
+        filtered_errors = [error for error in errors if error is not None]
+        
+        plt.plot(filtered_e_num_values, filtered_errors, 'o', markersize=3, linestyle='None', label=optimizer)
+
+    plt.xlabel(r'$Z$', fontsize=labelfontsize)
+    plt.ylabel(r'$E_{GS}$ Relative Error (%)', fontsize=labelfontsize)
+    plt.xticks(fontsize=tickfontsize)
+    plt.yticks(fontsize=tickfontsize)
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, 'fig_rel-error_vs_z.png'))
+    plt.close()  # Close the figure to avoid displaying it
+
+# Main function to call the plotting functions
+def main():
+    # Read the results from the CSV file
+    df = pd.read_csv('results.csv')
+
+    # Directory containing the NIST data files
+    nist_directory = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'
+    nist_data = read_nist_data(nist_directory)
+
+    # Output directory for plots
+    output_dir = 'Plots'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Plot ground state energy for each e_num and optimizer
+    plot_results(df, output_dir)
+
+    # Plot electron distribution
+    plot_electron_distribution(df, output_dir)
+
+    # Plot ground state energy
+    plot_ground_state_energy(df, nist_data, output_dir)
+
+    # Plot relative error
+    plot_relative_error(df, nist_data, output_dir)
+
+# Call the main function
+if __name__ == "__main__":
+    main()

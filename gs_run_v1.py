@@ -1,8 +1,7 @@
 import csv
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from progressbar import progressbar
 
 
 class HamiltonianOptimizer:
@@ -110,23 +109,6 @@ class HamiltonianOptimizer:
 
         return kin_pot + nuc_pot + heisen_pot + h_multi  # TOTAL ENERGY
 
-    def plot_results(self):
-        # Read the results from the CSV file
-        df = pd.read_csv('results.csv')
-
-        # Plot the ground state energy for each e_num and optimizer
-        plt.figure(figsize=(10, 6))
-        for optimizer in df['optimizer'].unique():
-            subset = df[df['optimizer'] == optimizer]
-            plt.plot(subset['e_num'], subset['ground_state_energy'], label=optimizer)
-
-        plt.xlabel('Number of Electrons (e_num)')
-        plt.ylabel('Ground State Energy')
-        plt.legend()
-        plt.grid(True)
-        plt.savefig('ground_state_energy_plot.png')
-        plt.show()
-
 # _____________________________________________________________
 # SEPARATE FUNCTION
 def optimize(optimizer, e_num_values):
@@ -136,7 +118,7 @@ def optimize(optimizer, e_num_values):
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
-        for e_num in e_num_values:
+        for e_num in progressbar(e_num_values):
             # Generate electron spins for arbitrary e_num
             e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
 
@@ -158,6 +140,5 @@ def optimize(optimizer, e_num_values):
 
 # Example usage
 optimizer = HamiltonianOptimizer(alpha=5, xi_h=1.000, xi_p=2.767)
-e_num_values = [2, 3, 4]
+e_num_values = [1, 2, 3, 4, 5]
 optimize(optimizer, e_num_values)
-optimizer.plot_results()
