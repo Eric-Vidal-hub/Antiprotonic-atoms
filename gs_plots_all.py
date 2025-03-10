@@ -3,6 +3,7 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from progressbar import progressbar
 
 # Function to read NIST data
 def read_nist_data(directory):
@@ -25,7 +26,7 @@ def read_nist_data(directory):
 # Function to plot ground state energy for each e_num and optimizer
 def plot_results(df, output_dir):
     plt.figure(figsize=(10, 6))
-    for optimizer in df['optimizer'].unique():
+    for optimizer in progressbar(df['optimizer'].unique(), prefix='Plotting ground state energy: '):
         subset = df[df['optimizer'] == optimizer]
         plt.plot(subset['e_num'], subset['ground_state_energy'], label=optimizer)
 
@@ -41,6 +42,7 @@ def plot_electron_distribution(df, output_dir):
     r0_values = {}
     p0_values = {}
     e_num_values = {}
+    time_taken_values = {}
 
     for optimizer in df['optimizer'].unique():
         subset = df[df['optimizer'] == optimizer]
@@ -48,20 +50,23 @@ def plot_electron_distribution(df, output_dir):
         r0_values[optimizer] = []
         p0_values[optimizer] = []
         e_num_values[optimizer] = []
+        time_taken_values[optimizer] = []
 
         for index, row in subset.iterrows():
             e_num = int(row['e_num'])
             optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'), sep=' ')
             r0 = optimal_config[:e_num]
             p0 = optimal_config[3 * e_num:4 * e_num]
+            time_taken = row['time_taken']
             
             # Store the values
             r0_values[optimizer].append((e_num, r0))
             p0_values[optimizer].append((e_num, p0))
             e_num_values[optimizer].append(e_num)
+            time_taken_values[optimizer].append(time_taken)
 
     # Plot r0 and p0 for each optimizer
-    for optimizer in df['optimizer'].unique():
+    for optimizer in progressbar(df['optimizer'].unique(), prefix='Plotting electron distribution: '):
         fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=True)
 
         for e_num, r0 in r0_values[optimizer]:
@@ -69,7 +74,7 @@ def plot_electron_distribution(df, output_dir):
                 marker = '^' if i % 2 == 0 else 'v'
                 axs[0].plot(e_num, value, marker=marker, linestyle='None', label=f'e_num={e_num}' if i == 0 else "")
         axs[0].set_ylabel('r0')
-        axs[0].set_title(f'Optimal r0 for {optimizer}')
+        axs[0].set_title(f'Optimal r0 for {optimizer} (Time taken: {sum(time_taken_values[optimizer]):.2f} s)')
         axs[0].grid(True)
         axs[0].legend()
 
@@ -79,7 +84,7 @@ def plot_electron_distribution(df, output_dir):
                 axs[1].plot(e_num, value, marker=marker, linestyle='None', label=f'e_num={e_num}' if i == 0 else "")
         axs[1].set_xlabel('e_num')
         axs[1].set_ylabel('p0')
-        axs[1].set_title(f'Optimal p0 for {optimizer}')
+        axs[1].set_title(f'Optimal p0 for {optimizer} (Time taken: {sum(time_taken_values[optimizer]):.2f} s)')
         axs[1].grid(True)
         axs[1].legend()
 
@@ -97,7 +102,7 @@ def plot_ground_state_energy(df, nist_data, output_dir):
     plt.plot(atomic_numbers, minus_etot_values, 'o', markersize=3, linestyle='None', label='NIST-LDA')
 
     # Calculated data
-    for optimizer in df['optimizer'].unique():
+    for optimizer in progressbar(df['optimizer'].unique(), prefix='Plotting ground state energy vs Z: '):
         subset = df[df['optimizer'] == optimizer]
         e_num_values = subset['e_num'].values
         ground_state_energies = -subset['ground_state_energy'].values
@@ -120,7 +125,7 @@ def plot_relative_error(df, nist_data, output_dir):
     plt.figure(figsize=(10, 6))
 
     # Calculated data
-    for optimizer in df['optimizer'].unique():
+    for optimizer in progressbar(df['optimizer'].unique(), prefix='Plotting relative error: '):
         subset = df[df['optimizer'] == optimizer]
         e_num_values = subset['e_num'].values
         ground_state_energies = -subset['ground_state_energy'].values

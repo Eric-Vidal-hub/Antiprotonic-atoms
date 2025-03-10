@@ -2,6 +2,7 @@ import csv
 import numpy as np
 from scipy.optimize import minimize
 from progressbar import progressbar
+import time
 
 
 class HamiltonianOptimizer:
@@ -114,7 +115,7 @@ class HamiltonianOptimizer:
 def optimize(optimizer, e_num_values):
     # Open the CSV file to write the results
     with open('results.csv', 'w', newline='') as csvfile:
-        fieldnames = ['e_num', 'optimizer', 'optimal_configuration', 'ground_state_energy']
+        fieldnames = ['e_num', 'optimizer', 'optimal_configuration', 'ground_state_energy', 'time_taken']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -127,18 +128,29 @@ def optimize(optimizer, e_num_values):
 
             # Use each optimizer to minimize the Hamiltonian
             for method in optimizer.optimizers:
+                start_time = time.time()
                 result = minimize(
                     optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method
                 )
+                end_time = time.time()
+                time_taken = end_time - start_time
                 writer.writerow({
                     'e_num': e_num,
                     'optimizer': method,
                     'optimal_configuration': np.array2string(result.x),
-                    'ground_state_energy': result.fun
+                    'ground_state_energy': result.fun,
+                    'time_taken': time_taken
                 })
 
 
-# Example usage
-optimizer = HamiltonianOptimizer(alpha=5, xi_h=1.000, xi_p=2.767)
-e_num_values = [1, 2, 3, 4, 5]
+# INITIAL CONFIGURATION VALUES
+alpha = 5
+xi_h = 1.000
+xi_p = 2.767
+e_ini = 1
+e_fin = 10
+e_step = 1
+# OPTIMIZATION
+optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
+e_num_values = list(range(e_ini, e_fin + 1, e_step))
 optimize(optimizer, e_num_values)
