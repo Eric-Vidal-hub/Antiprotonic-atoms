@@ -188,9 +188,8 @@ def main(file_name, output_dir, nist_directory='c:/Users/propietario/Documents/A
 alpha = 5
 xi_h = 1.000
 xi_p = 2.767
-e_ini = 10
-e_fin = 12
-e_step = 1
+e_ini = 1
+e_fin = 5
 
 # Open the CSV file to write the results
 file_name = f'results_alpha_{alpha}_xi_h_{xi_h}_xi_p_{xi_p}_e_{e_ini}_to_{e_fin}.csv'

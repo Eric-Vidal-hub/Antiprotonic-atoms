@@ -132,6 +132,7 @@ class HamiltonianOptimizer:
         return kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot  # Return individual components
 
 
+
 # %%
 # INITIAL CONFIGURATION VALUES
 alpha = 5
@@ -141,9 +142,7 @@ e_ini = 1
 e_fin = 5
 # POSSIBLE OPTIMIZERS, ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']
 # optimizers = ['BFGS', 'trust-constr'] # Powell and SLSQP are very fast but do not convey a proper electron structure and convergence (SLSQP is the fastest)
-# not checked yet: 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov'
-# 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov' needs Jacobian
-optimizers = []
+optimizers = ['trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']
 optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p, optimizers=optimizers)
 e_num_values = list(range(e_ini, e_fin + 1))
 
@@ -164,9 +163,14 @@ with open(output_filename, 'w', newline='') as csvfile:
         # Use each optimizer to minimize the Hamiltonian
         for method in optimizer.optimizers:
             start_time = time.time()
-            result = minimize(
-                optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method
-            )
+            if method in ['trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']:
+                result = minimize(
+                    optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method, jac=optimizer.jacobian, hess=optimizer.hessian
+                )
+            else:
+                result = minimize(
+                    optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method
+                )
             end_time = time.time()
             time_taken = end_time - start_time
 
