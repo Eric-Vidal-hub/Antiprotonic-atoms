@@ -6,7 +6,7 @@ import time
 
 
 class HamiltonianOptimizer:
-    def __init__(self, alpha, xi_h, xi_p, seed=1234, optimizers=['BFGS', 'trust-constr']):
+    def __init__(self, alpha, xi_h, xi_p, seed=1234, optimizers=['BFGS']):
         self.alpha = alpha
         self.xi_h = xi_h
         self.xi_p = xi_p
@@ -16,17 +16,17 @@ class HamiltonianOptimizer:
 
     def generate_initial_config(self, e_num):
         half_e_num = e_num // 2 + e_num % 2  # Rounded up half number of electrons
-        r0 = self.rng.uniform(1, 1.2, half_e_num)  # Ini radial positions
-        theta0 = self.rng.uniform(0, np.pi, half_e_num)  # Ini polar angles
-        phi0 = self.rng.uniform(0, 2 * np.pi, half_e_num)  # Ini azimuthal angles
+        r0 = self.rng.uniform(1, 1.2, half_e_num).astype(np.float64)  # Ini radial positions
+        theta0 = self.rng.uniform(0, np.pi, half_e_num).astype(np.float64)  # Ini polar angles
+        phi0 = self.rng.uniform(0, 2 * np.pi, half_e_num).astype(np.float64)  # Ini azimuthal angles
         # Mirror the other half
         r0 = np.concatenate((r0, r0[:e_num - half_e_num]))
         theta0 = np.concatenate((theta0, np.pi - theta0[:e_num - half_e_num]))
         phi0 = np.concatenate((phi0, phi0[:e_num - half_e_num] + np.pi))
 
-        p0 = self.rng.uniform(1, 1.2, half_e_num)  # Ini radial momenta
-        theta_p0 = self.rng.uniform(0, np.pi, half_e_num)  # Ini polar angles for p
-        phi_p0 = self.rng.uniform(0, 2 * np.pi, half_e_num)  # Ini azimuthal angles for p
+        p0 = self.rng.uniform(1, 1.2, half_e_num).astype(np.float64)  # Ini radial momenta
+        theta_p0 = self.rng.uniform(0, np.pi, half_e_num).astype(np.float64)  # Ini polar angles for p
+        phi_p0 = self.rng.uniform(0, 2 * np.pi, half_e_num).astype(np.float64)  # Ini azimuthal angles for p
         # Mirror the other half
         p0 = np.concatenate((p0, p0[:e_num - half_e_num]))
         theta_p0 = np.concatenate((theta_p0, np.pi - theta_p0[:e_num - half_e_num]))
@@ -83,12 +83,12 @@ class HamiltonianOptimizer:
         return pair_pot, pauli_pot
 
     def hamiltonian(self, xx, e_num, e_spin):
-        rr = np.zeros(e_num)
-        theta = np.zeros(e_num)
-        phi = np.zeros(e_num)
-        pp = np.zeros(e_num)
-        theta_p = np.zeros(e_num)
-        phi_p = np.zeros(e_num)
+        rr = np.zeros(e_num, dtype=np.float64)
+        theta = np.zeros(e_num, dtype=np.float64)
+        phi = np.zeros(e_num, dtype=np.float64)
+        pp = np.zeros(e_num, dtype=np.float64)
+        theta_p = np.zeros(e_num, dtype=np.float64)
+        phi_p = np.zeros(e_num, dtype=np.float64)
         for i in range(e_num):
             rr[i] = xx[i]
             theta[i] = xx[e_num + i]
@@ -108,12 +108,12 @@ class HamiltonianOptimizer:
         return total_energy
 
     def hamiltonian_components(self, xx, e_num, e_spin):
-        rr = np.zeros(e_num)
-        theta = np.zeros(e_num)
-        phi = np.zeros(e_num)
-        pp = np.zeros(e_num)
-        theta_p = np.zeros(e_num)
-        phi_p = np.zeros(e_num)
+        rr = np.zeros(e_num, dtype=np.float64)
+        theta = np.zeros(e_num, dtype=np.float64)
+        phi = np.zeros(e_num, dtype=np.float64)
+        pp = np.zeros(e_num, dtype=np.float64)
+        theta_p = np.zeros(e_num, dtype=np.float64)
+        phi_p = np.zeros(e_num, dtype=np.float64)
         for i in range(e_num):
             rr[i] = xx[i]
             theta[i] = xx[e_num + i]
@@ -132,24 +132,30 @@ class HamiltonianOptimizer:
         return kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot  # Return individual components
 
 
-
 # %%
 # INITIAL CONFIGURATION VALUES
 alpha = 5
 xi_h = 1.000
 xi_p = 2.767
+# # Scaling parameters according to alpha
+# xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
+# xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
+# print(f'For alpha = {alpha}: xi_h = {xi_h:.3f}, xi_p = {xi_p:.3f}')
+
+# Number of electrons range to study
 e_ini = 1
-e_fin = 5
+e_fin = 14
 # POSSIBLE OPTIMIZERS, ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']
 # optimizers = ['BFGS', 'trust-constr'] # Powell and SLSQP are very fast but do not convey a proper electron structure and convergence (SLSQP is the fastest)
-optimizers = ['trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']
-optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p, optimizers=optimizers)
+# optimizers = ['trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']
+# by default BFGS is used
+optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
 e_num_values = list(range(e_ini, e_fin + 1))
 
 # Open the CSV file to write the results
-output_filename = f'results_alpha_{alpha}_xi_h_{xi_h}_xi_p_{xi_p}_e_{e_ini}_to_{e_fin}.csv'
+output_filename = f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_e_{e_ini}_to_{e_fin}.csv'
 with open(output_filename, 'w', newline='') as csvfile:
-    fieldnames = ['e_num', 'optimizer', 'optimal_configuration', 'ground_state_energy', 'kinetic_energy', 'nuclear_potential', 'heisenberg_potential', 'pair_potential', 'pauli_potential', 'time_taken', 'converged']
+    fieldnames = ['e_num', 'optimizer', 'optimal_configuration', 'ground_state_energy', 'kinetic_energy', 'nuclear_potential', 'heisenberg_potential', 'pair_potential', 'pauli_potential', 'time_taken', 'converged', 'message']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
@@ -163,31 +169,27 @@ with open(output_filename, 'w', newline='') as csvfile:
         # Use each optimizer to minimize the Hamiltonian
         for method in optimizer.optimizers:
             start_time = time.time()
-            if method in ['trust-constr', 'dogleg', 'trust-ncg', 'trust-exact', 'trust-krylov']:
-                result = minimize(
-                    optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method, jac=optimizer.jacobian, hess=optimizer.hessian
-                )
-            else:
-                result = minimize(
-                    optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method
-                )
+            result = minimize(
+                optimizer.hamiltonian, ini_config, args=(e_num, e_spin), method=method, tol=1e-3, options={'disp': False}
+            )
             end_time = time.time()
             time_taken = end_time - start_time
 
             # Extract individual components of the Hamiltonian
             kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot = optimizer.hamiltonian_components(result.x, e_num, e_spin)
             ground_state_energy = kin_pot + nuc_pot + heisen_pot + pair_pot + pauli_pot
-
+                
             writer.writerow({
                 'e_num': e_num,
                 'optimizer': method,
                 'optimal_configuration': np.array2string(result.x),
-                'ground_state_energy': ground_state_energy,
-                'kinetic_energy': kin_pot,
-                'nuclear_potential': nuc_pot,
-                'heisenberg_potential': heisen_pot,
-                'pair_potential': pair_pot,
-                'pauli_potential': pauli_pot,
-                'time_taken': time_taken,
-                'converged': result.success
+                'ground_state_energy': f'{ground_state_energy:.3f}',
+                'kinetic_energy': f'{kin_pot:.3f}',
+                'nuclear_potential': f'{nuc_pot:.3f}',
+                'heisenberg_potential': f'{heisen_pot:.3f}',
+                'pair_potential': f'{pair_pot:.3f}',
+                'pauli_potential': f'{pauli_pot:.3f}',
+                'time_taken': f'{time_taken:.3f}',
+                'converged': result.success,
+                'message': result.message
             })

@@ -28,7 +28,7 @@ def plot_results(df, output_dir):
     plt.figure(figsize=(10, 6))
     for optimizer in progressbar(df['optimizer'].unique(), prefix='Plotting ground state energy: '):
         subset = df[df['optimizer'] == optimizer]
-        plt.plot(subset['e_num'], np.abs(subset['ground_state_energy']), label=optimizer)
+        plt.plot(subset['e_num'], np.abs(subset['ground_state_energy'].astype(float)), 'o', label=optimizer)
 
     plt.xlabel('Number of Electrons (e_num)')
     plt.ylabel(r'$-E_{GS}$ (a.u.)')
@@ -188,11 +188,17 @@ def main(file_name, output_dir, nist_directory='c:/Users/propietario/Documents/A
 alpha = 5
 xi_h = 1.000
 xi_p = 2.767
+# # Scaling parameters according to alpha
+# xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
+# xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
+# print(f'For alpha = {alpha}: xi_h = {xi_h:.3f}, xi_p = {xi_p:.3f}')
+
+# Number of electrons range to study
 e_ini = 1
-e_fin = 5
+e_fin = 14
 
 # Open the CSV file to write the results
-file_name = f'results_alpha_{alpha}_xi_h_{xi_h}_xi_p_{xi_p}_e_{e_ini}_to_{e_fin}.csv'
+file_name = f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_e_{e_ini}_to_{e_fin}.csv'
 output_dir = f'Plots_e_{e_ini}_to_{e_fin}'
 # nist_directory = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'
 
