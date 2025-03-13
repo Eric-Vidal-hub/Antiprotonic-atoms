@@ -199,7 +199,7 @@ e_fin = 14
 
 # Open the CSV file to write the results
 file_name = f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_e_{e_ini}_to_{e_fin}.csv'
-output_dir = f'Plots_e_{e_ini}_to_{e_fin}'
+output_dir = f'Plots_e_{e_ini}_to_{e_fin}_precision_1e-3'
 # nist_directory = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'
 
 # Call the main function
