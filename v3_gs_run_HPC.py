@@ -1,7 +1,7 @@
 """
 Author: Eric Vidal Marcos
 Date: 14-03-2025
-Project: GS study using a classical potential model with V_H and V_P
+Project: GS study using the FMD semi-classical model with V_H and V_P.
 
 This module contains the HamiltonianOptimizer class and the main script
 to run the Hamiltonian optimization for a given set of parameters.
