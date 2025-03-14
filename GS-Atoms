@@ -14,6 +14,6 @@ cd ~/Antiprotonic-atoms/
 
 for ((z=0;z<=15;z++))
 do
-        python gs_HPC.py /scratch/vym17xaj/FILE_NAME $(bc <<< "(($SLURM_ARRAY_TASK_ID)*16)+$z") &
+        python v3_gs_run_HPC.py /scratch/vym17xaj/gs_z_18 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*16)+$z") &
 done
 wait

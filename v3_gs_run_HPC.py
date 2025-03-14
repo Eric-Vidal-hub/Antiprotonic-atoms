@@ -17,11 +17,12 @@ numbers, and performs the optimization using the BFGS algorithm. The
 results are written to a CSV file.
 """
 
+import sys
+import os
 import csv
 import time
 import numpy as np
 from scipy.optimize import fmin_bfgs
-from progressbar import progressbar
 
 
 class HamiltonianOptimizer:
@@ -272,18 +273,33 @@ class HamiltonianOptimizer:
         return kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot
 
 
+# DIRECTORY TO SAVE THE RESULTS
+directory = sys.argv[1]
+id = int(sys.argv[2])
+
+path = directory
+if os.path.exists(path) != True:
+    print('Directory not found.')
+    print('Create Directory...')
+    try:
+        os.mkdir(path)
+    except:
+        print("Directory was already created by a different demon!")
+else:
+    print('Directory exists!')
+
 # INITIAL CONFIGURATION VALUES
-alpha = 5
-xi_h = 1.000
-xi_p = 2.767
-# Scaling parameters according to alpha
+alpha = 5       # Hardness parameter
+xi_h = 1.000    # Tuning parameter for the Heisenberg potential
+xi_p = 2.767    # Tuning parameter for the Pauli potential
+maxiter = 20    # Maximum number of iterations for optimization
+gtol = 1e-4     # Gradient tolerance for optimization
+e_num = id
+# SCALING PARAMETERS according to alpha
 # xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
 # xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
 # print(f'For alpha = {alpha}: xi_h = {xi_h:.3f}, xi_p = {xi_p:.3f}')
-# Number of electrons range to study
-e_ini = 1
-e_fin = 14
-gtol = 1e-4
+
 # OPTIMIZERS: ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B',
 # TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg',
 # 'trust-exact', 'trust-krylov']
@@ -291,13 +307,44 @@ gtol = 1e-4
 # optimizers = ['BFGS', 'trust-constr']     # are the best ones
 
 optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
-e_num_values = list(range(e_ini, e_fin + 1))
+
+# OPTIMIZATION PARAMETERS
+iter_num = 0
+converged = False
+
+# Generate electron spins for arbitrary e_num
+e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
+
+# Generate initial configuration
+ini_config = optimizer.generate_initial_config(e_num)
+
+# Check if the initial configuration has positive values
+positive = (
+    np.all(ini_config[:e_num] > 0) and
+    np.all(ini_config[3 * e_num:4 * e_num] > 0)
+)
+
+# Value Error if positive is False
+if not positive:
+    raise ValueError('Initial configuration has negative values for r0 or p0')
+
+# File name
+elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
+                    'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
+                    'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+                    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr',
+                    'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn',
+                    'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd',
+                    'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb',
+                    'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
+                    'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
+                    'Pa', 'U']
+element = elements_list[e_num - 1]
+output_filename = (
+    f'{e_num:02d}_{element}_results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}.csv'
+)
 
 # Open the CSV file to write the results
-output_filename = (
-    f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_'
-    f'e_{e_ini}_to_{e_fin}.csv'
-)
 with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
     fieldnames = [
         'e_num', 'message', 'time_taken', 'ground_state_energy',
@@ -307,74 +354,61 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
-    maxiter = 6
-    for e_num in progressbar(e_num_values):
-        # Generate electron spins for arbitrary e_num
-        e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
+    # OPTIMIZATION
+    start_time = time.time()
+    while not converged or not positive:
+        if iter_num >= maxiter:
+            message = f'NOT Converged after {maxiter} iterations'
+            break
+        # if there is any negative r0 and p0 change to absolute value
+        if not positive:
+            ini_config[:e_num] = np.abs(ini_config[:e_num])
+            ini_config[3 * e_num:4 * e_num] = np.abs(
+                ini_config[3 * e_num:4 * e_num]
+            )
+            ini_config[:e_num] = np.where(
+                ini_config[:e_num] > 50, 1, ini_config[:e_num]
+            )
+            ini_config[3 * e_num:4 * e_num] = np.where(
+                ini_config[3 * e_num:4 * e_num] > 50, 1,
+                ini_config[3 * e_num:4 * e_num]
+            )
+        result = fmin_bfgs(
+            optimizer.hamiltonian, ini_config, args=(e_num, e_spin),
+            gtol=gtol, full_output=True, disp=False, retall=False
+        )
+        optimal_config, fopt, gopt, Bopt, func_calls, grad_calls, \
+            warnflag = result
+        converged = warnflag == 0
+        ini_config = optimal_config
 
-        # Generate initial configuration
-        ini_config = optimizer.generate_initial_config(e_num)
-        start_time = time.time()
-
-        iter_num = 0
-        converged = False
         positive = (
             np.all(ini_config[:e_num] > 0) and
             np.all(ini_config[3 * e_num:4 * e_num] > 0)
         )
-        while not converged or not positive:
-            if iter_num >= maxiter:
-                message = f'NOT Converged after {maxiter} iterations'
-                break
-            # if there is any negative r0 and p0 change to absolute value
-            if not positive:
-                ini_config[:e_num] = np.abs(ini_config[:e_num])
-                ini_config[3 * e_num:4 * e_num] = np.abs(
-                    ini_config[3 * e_num:4 * e_num]
-                )
-                ini_config[:e_num] = np.where(
-                    ini_config[:e_num] > 50, 1, ini_config[:e_num]
-                )
-                ini_config[3 * e_num:4 * e_num] = np.where(
-                    ini_config[3 * e_num:4 * e_num] > 50, 1,
-                    ini_config[3 * e_num:4 * e_num]
-                )
-            result = fmin_bfgs(
-                optimizer.hamiltonian, ini_config, args=(e_num, e_spin),
-                gtol=gtol, full_output=True, disp=False, retall=False
-            )
-            optimal_config, fopt, gopt, Bopt, func_calls, grad_calls, \
-                warnflag = result
-            converged = warnflag == 0
-            ini_config = optimal_config
+        iter_num += 1
 
-            positive = (
-                np.all(ini_config[:e_num] > 0) and
-                np.all(ini_config[3 * e_num:4 * e_num] > 0)
-            )
-            iter_num += 1
+    if converged:
+        message = f'Converged after {iter_num} iterations'
 
-        if converged:
-            message = f'Converged after {iter_num} iterations'
+    end_time = time.time()
+    time_taken = end_time - start_time
 
-        end_time = time.time()
-        time_taken = end_time - start_time
+    # Extract individual components of the Hamiltonian
+    kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot = optimizer.\
+        hamiltonian_components(optimal_config, e_num, e_spin)
+    ground_state_energy = (kin_pot + nuc_pot + heisen_pot +
+                            pair_pot + pauli_pot)
 
-        # Extract individual components of the Hamiltonian
-        kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot = optimizer.\
-            hamiltonian_components(optimal_config, e_num, e_spin)
-        ground_state_energy = (kin_pot + nuc_pot + heisen_pot +
-                               pair_pot + pauli_pot)
-
-        writer.writerow({
-            'e_num': e_num,
-            'ground_state_energy': f'{ground_state_energy:.3f}',
-            'kinetic_energy': f'{kin_pot:.3f}',
-            'nuclear_potential': f'{nuc_pot:.3f}',
-            'heisenberg_potential': f'{heisen_pot:.3f}',
-            'pair_potential': f'{pair_pot:.3f}',
-            'pauli_potential': f'{pauli_pot:.3f}',
-            'time_taken': f'{time_taken:.3f}',
-            'message': message,
-            'optimal_configuration': np.array2string(optimal_config)
-        })
+    writer.writerow({
+        'e_num': e_num,
+        'ground_state_energy': f'{ground_state_energy:.3f}',
+        'kinetic_energy': f'{kin_pot:.3f}',
+        'nuclear_potential': f'{nuc_pot:.3f}',
+        'heisenberg_potential': f'{heisen_pot:.3f}',
+        'pair_potential': f'{pair_pot:.3f}',
+        'pauli_potential': f'{pauli_pot:.3f}',
+        'time_taken': f'{time_taken:.3f}',
+        'message': message,
+        'optimal_configuration': np.array2string(optimal_config)
+    })
