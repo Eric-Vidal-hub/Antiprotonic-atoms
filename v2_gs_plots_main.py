@@ -9,6 +9,7 @@ import numpy as np
 labelfontsize = 18
 tickfontsize = 14
 
+
 # Function to read NIST data
 def read_nist_data(directory):
     nist_etot_values = []
@@ -27,6 +28,7 @@ def read_nist_data(directory):
 
     return dict(zip(atomic_numbers, nist_etot_values))
 
+
 # Function to plot ground state energy for each e_num
 def plot_results(df, output_dir):
     plt.figure(figsize=(10, 6))
@@ -39,6 +41,7 @@ def plot_results(df, output_dir):
     plt.grid(True)
     plt.savefig(os.path.join(output_dir, 'fig_gs_e.png'))
     plt.close()  # Close the figure to avoid displaying it
+
 
 # Function to plot electron distribution
 def plot_electron_distribution(df, output_dir):
@@ -86,6 +89,7 @@ def plot_electron_distribution(df, output_dir):
     plt.savefig(os.path.join(output_dir, 'fig_optimal_r0_p0.png'))
     plt.close(fig)  # Close the figure to avoid displaying it
 
+
 # Function to plot ground state energy
 def plot_ground_state_energy(df, nist_data, output_dir):
     plt.figure(figsize=(10, 6))
@@ -108,6 +112,7 @@ def plot_ground_state_energy(df, nist_data, output_dir):
     plt.legend()
     plt.savefig(os.path.join(output_dir, 'fig_gs_e_vs_z.png'))
     plt.close()  # Close the figure to avoid displaying it
+
 
 # Function to plot relative error
 def plot_relative_error(df, nist_data, output_dir):
@@ -171,6 +176,7 @@ def main(file_name, output_dir, nist_directory='c:/Users/propietario/Documents/A
 alpha = 5
 xi_h = 1.000
 xi_p = 2.767
+gtol = 1e-4
 # # Scaling parameters according to alpha
 # xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
 # xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
@@ -182,7 +188,7 @@ e_fin = 14
 
 # Open the CSV file to write the results
 file_name = f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_e_{e_ini}_to_{e_fin}.csv'
-output_dir = f'Plots_e_{e_ini}_to_{e_fin}_gtol_1e-3_pos_pp_faster_ini_cond_refined'
+output_dir = f'Plots_e_{e_ini}_to_{e_fin}_gtol_{gtol:.1e}_optimal_conditions'
 # nist_directory = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'
 
 # Call the main function
