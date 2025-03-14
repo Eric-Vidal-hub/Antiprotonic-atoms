@@ -340,9 +340,7 @@ elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
                     'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
                     'Pa', 'U']
 element = elements_list[e_num - 1]
-output_filename = (
-    f'{e_num:02d}_{element}_results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}.csv'
-)
+output_filename = os.path.join(path, f'{e_num:02d}_{element}.csv')
 
 # Open the CSV file to write the results
 with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
