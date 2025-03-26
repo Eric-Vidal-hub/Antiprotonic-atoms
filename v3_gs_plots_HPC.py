@@ -1,6 +1,6 @@
 """
 Author: Eric Vidal Marcos
-Date: 14-03-2025
+Date: 26-03-2025
 Project: Plotting for the GS study using the FMD semi-classical model
 with V_H and V_P potentials.
 
@@ -44,113 +44,27 @@ def read_nist_data(directory):
     return dict(zip(atomic_numbers, nist_etot_values))
 
 
-def plot_results(df, output_dir):
+def plot_combined_results(aggregated_df, nist_data, output_dir):
     """
-    Plot ground state energy for each e_num.
+    Plot combined ground state energy for all files and compare with NIST data.
 
-    :param df: DataFrame containing the results.
-    :param output_dir: Directory to save the plots.
-    """
-    plt.figure(figsize=(10, 6))
-    plt.title('BFGS simulation', fontsize=labelfontsize)
-    plt.plot(df['e_num'], np.abs(df['ground_state_energy'].astype(float)), 'o')
-    plt.xlabel('Z', fontsize=labelfontsize)
-    plt.ylabel(r'$-E_{GS}$ (a.u.)', fontsize=labelfontsize)
-    plt.xticks(fontsize=tickfontsize)
-    plt.yticks(fontsize=tickfontsize)
-    plt.yscale('log')
-    plt.grid(True)
-    plt.savefig(os.path.join(output_dir, 'fig_gs_e.svg'))
-    plt.close()  # Close the figure to avoid displaying it
-
-
-def plot_electron_distribution(df, output_dir):
-    """
-    Plot electron distribution for each e_num.
-
-    :param df: DataFrame containing the results.
-    :param output_dir: Directory to save the plots.
-    """
-    r0_values = []
-    p0_values = []
-    e_num_values = []
-    time_taken_values = []
-    markersize = 10
-    markeredgewidth = 1.5
-
-    for _, row in df.iterrows():
-        e_num = int(row['e_num'])
-        optimal_config = np.fromstring(
-            row['optimal_configuration'].strip('[]'), sep=' '
-        )
-        r0 = optimal_config[:e_num]
-        p0 = optimal_config[3 * e_num:4 * e_num]
-        time_taken = row['time_taken']
-
-        # Store the values
-        r0_values.append((e_num, r0))
-        p0_values.append((e_num, p0))
-        e_num_values.append(e_num)
-        time_taken_values.append(time_taken)
-
-    # Plot r0 and p0
-    fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=False)
-
-    for e_num, r0 in r0_values:
-        for i, value in enumerate(r0):
-            marker = '^' if i % 2 == 0 else 'v'
-            axs[0].plot(e_num, value, marker=marker, linestyle='None',
-                        markersize=markersize, markeredgecolor='black',
-                        markerfacecolor='none',
-                        markeredgewidth=markeredgewidth,)
-    axs[0].set_xlabel(r'$Z$', fontsize=labelfontsize)
-    axs[0].set_ylabel(r'$r_0$', fontsize=labelfontsize)
-    axs[0].set_title(f'Time taken: {sum(time_taken_values):.2f} s',
-                     fontsize=labelfontsize)
-    axs[0].grid(True)
-    axs[0].set_yscale('log')
-    axs[0].tick_params(axis='both', which='major', labelsize=tickfontsize)
-
-    for e_num, p0 in p0_values:
-        for i, value in enumerate(p0):
-            marker = '^' if i % 2 == 0 else 'v'
-            axs[1].plot(e_num, value, marker=marker, linestyle='None',
-                        markersize=markersize, markeredgecolor='black',
-                        markerfacecolor='none',
-                        markeredgewidth=markeredgewidth)
-    axs[1].set_xlabel(r'$Z$', fontsize=labelfontsize)
-    axs[1].set_ylabel(r'$p_0$', fontsize=labelfontsize)
-    axs[1].set_yscale('log')
-    axs[1].grid(True)
-    axs[1].tick_params(axis='both', which='major', labelsize=tickfontsize)
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'fig_optimal_r0_p0.svg'))
-    plt.close(fig)  # Close the figure to avoid displaying it
-
-
-def plot_ground_state_energy(df, nist_data, output_dir):
-    """
-    Plot ground state energy and compare with NIST data.
-
-    :param df: DataFrame containing the results.
+    :param aggregated_df: Aggregated DataFrame containing the results.
     :param nist_data: Dictionary with NIST data.
     :param output_dir: Directory to save the plots.
     """
     plt.figure(figsize=(10, 6))
-    # NIST data
+    # Plot NIST data
     atomic_numbers = list(nist_data.keys())
     minus_etot_values = list(nist_data.values())
     plt.plot(atomic_numbers, minus_etot_values, 'o', markersize=5,
              linestyle='None', label='NIST-LDA', markeredgecolor='orange',
              markerfacecolor='orange')
-
-    # Calculated data
-    e_num_values = df['e_num'].values
-    ground_state_energies = -df['ground_state_energy'].values
-    plt.plot(e_num_values, ground_state_energies, 'o', markersize=5,
-             linestyle='None', label='BFGS', markeredgecolor='darkblue',
-             markerfacecolor='none')
+    
+    # Plot results from files
+    plt.plot(aggregated_df['e_num'],
+             np.abs(aggregated_df['ground_state_energy']),
+             'o', markersize=5, linestyle='None', label='BFGS',
+             markeredgecolor='darkblue', markerfacecolor='none')
 
     plt.xlabel(r'$Z$', fontsize=labelfontsize)
     plt.ylabel(r'$-E_{GS}$ (a.u.)', fontsize=labelfontsize)
@@ -158,108 +72,203 @@ def plot_ground_state_energy(df, nist_data, output_dir):
     plt.yticks(fontsize=tickfontsize)
     plt.yscale('log')
     plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(output_dir, 'fig_gs_e_vs_z.svg'))
-    plt.close()  # Close the figure to avoid displaying it
+    plt.legend(fontsize=10, loc='best')
+    plt.savefig(os.path.join(output_dir, 'combined_fig_gs_e_vs_nist.svg'))
+    plt.close()
 
 
-def plot_relative_error(df, nist_data, output_dir):
+def plot_electron_distribution(aggregated_df, output_dir):
+    """
+    Plot electron distribution for all files with up triangles for spin up
+    and down triangles for spin down. The distribution is plotted in log scale.
+
+    :param aggregated_df: Aggregated DataFrame containing the results.
+    :param output_dir: Directory to save the plots.
+    """
+    markersize = 6
+    markeredgewidth = 1.5
+    plt.figure(figsize=(10, 6))
+    for _, group in aggregated_df.groupby('file_name'):
+        for _, row in group.iterrows():
+            e_num = int(row['e_num'])
+            optimal_config = np.fromstring(row['optimal_configuration']
+                                           .strip('[]'), sep=' ')
+            r0 = optimal_config[:e_num]
+
+            for i, r in enumerate(r0):
+                if i % 2 == 0:  # Even index -> Spin down
+                    plt.plot(e_num, r, 'v', linestyle='None',
+                             markersize=markersize, markeredgecolor='black',
+                             markerfacecolor='none',
+                             markeredgewidth=markeredgewidth)
+                else:  # Odd index -> Spin up
+                    plt.plot(e_num, r, '^', linestyle='None',
+                             markersize=markersize, markeredgecolor='black',
+                             markerfacecolor='none',
+                             markeredgewidth=markeredgewidth)
+
+    plt.xlabel(r'$Z$', fontsize=labelfontsize)
+    plt.ylabel(r'$r_0$', fontsize=labelfontsize)
+    plt.yscale('log')
+    plt.xticks(fontsize=tickfontsize)
+    plt.yticks(fontsize=tickfontsize)
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, 'electron_distribution.svg'))
+    plt.close()
+
+
+def plot_momenta_distribution(aggregated_df, output_dir):
+    """
+    Plot momenta distribution for all files with up triangles for spin up
+    and down triangles for spin down. The distribution is plotted in log scale.
+
+    :param aggregated_df: Aggregated DataFrame containing the results.
+    :param output_dir: Directory to save the plots.
+    """
+    markersize = 6
+    markeredgewidth = 1.5
+    plt.figure(figsize=(10, 6))
+    for _, group in aggregated_df.groupby('file_name'):
+        for _, row in group.iterrows():
+            e_num = int(row['e_num'])
+            optimal_config = np.fromstring(row['optimal_configuration']
+                                           .strip('[]'), sep=' ')
+            p0 = optimal_config[e_num:2*e_num]
+
+            for i, p in enumerate(p0):
+                if i % 2 == 0:  # Even index -> Spin down
+                    plt.plot(e_num, p, 'v', linestyle='None',
+                             markersize=markersize, markeredgecolor='black',
+                             markerfacecolor='none',
+                             markeredgewidth=markeredgewidth)
+                else:  # Odd index -> Spin up
+                    plt.plot(e_num, p, '^', linestyle='None',
+                             markersize=markersize, markeredgecolor='black',
+                             markerfacecolor='none',
+                             markeredgewidth=markeredgewidth)
+
+    plt.xlabel(r'$Z$', fontsize=labelfontsize)
+    plt.ylabel(r'$p_0$', fontsize=labelfontsize)
+    plt.yscale('log')
+    plt.xticks(fontsize=tickfontsize)
+    plt.yticks(fontsize=tickfontsize)
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, 'momenta_distribution.svg'))
+    plt.close()
+
+
+def plot_relative_error(aggregated_df, nist_data, output_dir):
     """
     Plot relative error of ground state energy compared to NIST data.
 
-    :param df: DataFrame containing the results.
+    :param aggregated_df: Aggregated DataFrame containing the results.
     :param nist_data: Dictionary with NIST data.
     :param output_dir: Directory to save the plots.
     """
     plt.figure(figsize=(10, 6))
+    # Plot relative error for results
+    for _, group in aggregated_df.groupby('file_name'):
+        errors = []
+        for _, row in group.iterrows():
+            e_num = int(row['e_num'])
+            gs_energy = -row['ground_state_energy']
+            if e_num in nist_data:
+                error = 100 * np.abs((gs_energy - nist_data[e_num]) /
+                                     nist_data[e_num])
+                errors.append((e_num, error))
 
-    # Calculated data
-    e_num_values = df['e_num'].values
-    ground_state_energies = -df['ground_state_energy'].values
-
-    # Calculate errors
-    errors = []
-    for e_num, gs_energy in zip(e_num_values, ground_state_energies):
-        if e_num in nist_data:
-            error = 100 * np.abs((gs_energy - nist_data[e_num]) /
-                                 nist_data[e_num])
-            errors.append(error)
-        else:
-            errors.append(None)  # for cases where NIST data is not available
-
-    # Filter out None values
-    filtered_e_num_values = [e_num for e_num, error in zip(e_num_values,
-                                                           errors)
-                             if error is not None]
-    filtered_errors = [error for error in errors if error is not None]
-
-    plt.plot(filtered_e_num_values, filtered_errors, 'o', markersize=7,
-             linestyle='None')
+        if errors:
+            e_nums, rel_errors = zip(*errors)
+            plt.plot(e_nums, rel_errors, 'o', markersize=7,
+                     linestyle='None', color='blue')
 
     plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'$|\frac{E_{GS, BFGS} - E_{GS, NIST}}{E_{GS, NIST}}|$ (%)',
-               fontsize=labelfontsize)
+    plt.ylabel(r'Relative Error = $|\frac{E_{GS, BFGS} -E_{GS, NIST}}'
+               r'{E_{GS, NIST}}|$ (%)', fontsize=labelfontsize)
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'fig_rel-error_vs_z.svg'))
-    plt.close()  # Close the figure to avoid displaying it
+    plt.savefig(os.path.join(output_dir, 'combined_relative_error.svg'))
+    plt.close()
 
 
-def main(file_name, output_dir,
+def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
          nist_directory='c:/Users/propietario/Documents/Antiprotonic-atoms/'
                         'LDA/neutrals'):
     """
-    Main function to read data, plot results, and compare with NIST data.
+    Main function to read all files in the HPC_results folder, aggregate data,
+    and plot combined results.
 
-    :param file_name: CSV file containing the results.
+    :param hpc_results_dir: Directory containing the HPC results CSV files.
     :param output_dir: Directory to save the plots.
+    :param start_file: Name of the first file to include in the plots.
+    :param end_file: Name of the last file to include in the plots.
     :param nist_directory: Directory containing the NIST data files.
     """
-    # Read the results from the CSV file
-    df = pd.read_csv(file_name)
-
-    # Output directory for plots
+    # Ensure the output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # Plot ground state energy for each e_num
-    plot_results(df, output_dir)
-
-    # Plot electron distribution
-    plot_electron_distribution(df, output_dir)
-
-    # Directory containing the NIST data files
+    # Read NIST data
     nist_data = read_nist_data(nist_directory)
 
-    # Plot ground state energy
-    plot_ground_state_energy(df, nist_data, output_dir)
+    # Aggregate data from all CSV files
+    aggregated_data = []
+    files = sorted(os.listdir(hpc_results_dir))
+    if start_file and end_file:
+        # Filter files based on the specified range
+        if start_file in files and end_file in files:
+            start_index = files.index(start_file)
+            end_index = files.index(end_file) + 1
+            files = files[start_index:end_index]
+        else:
+            print("Specified file range is invalid.")
+            return
 
-    # Plot relative error
-    plot_relative_error(df, nist_data, output_dir)
+    for filename in files:
+        if filename.endswith('.csv'):
+            file_path = os.path.join(hpc_results_dir, filename)
+            try:
+                # Attempt to read the CSV file
+                df = pd.read_csv(file_path)
+                if df.empty:
+                    print(f"Skipping empty file: {filename}")
+                    continue
+                df['file_name'] = filename  # Add a column to track
+                aggregated_data.append(df)
+            except pd.errors.EmptyDataError:
+                print(f"Skipping invalid or empty file: {filename}")
+            except Exception as e:
+                print(f"Error reading file {filename}: {e}")
+
+    # Combine all data into a single DataFrame
+    if aggregated_data:
+        aggregated_df = pd.concat(aggregated_data, ignore_index=True)
+
+        # Plot combined ground state energy with NIST data
+        plot_combined_results(aggregated_df, nist_data, output_dir)
+
+        # Plot electron position distribution
+        plot_electron_distribution(aggregated_df, output_dir)
+
+        # Plot electron momenta distribution
+        plot_momenta_distribution(aggregated_df, output_dir)
+
+        # Plot relative error
+        plot_relative_error(aggregated_df, nist_data, output_dir)
+    else:
+        print("No valid data files found in the HPC_results directory.")
 
 
-# Default values
-# INITIAL CONFIGURATION VALUES
-alpha = 5
-xi_h = 1.000
-xi_p = 2.767
-gtol = 1e-4
-# # Scaling parameters according to alpha
-# xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
-# xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
-# print(f'For alpha = {alpha}: xi_h = {xi_h:.3f}, xi_p = {xi_p:.3f}')
+# Define the directories
+hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
+                   'HPC_results')
+output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
 
-# Number of electrons range to study
-e_ini = 1
-e_fin = 14
-
-# Open the CSV file to write the results
-file_name = (f'results_alpha_{alpha}_xi_h_{xi_h:.3f}_xi_p_{xi_p:.3f}_'
-             f'e_{e_ini}_to_{e_fin}.csv')
-output_dir = (f'Plots_e_{e_ini}_to_{e_fin}_gtol_{gtol:.1e}_optimal_conditions')
+# Specify the file range (optional)
+start_file = '01_H_results_alpha_5_xi_h_1.000_xi_p_2.767.csv'
+end_file = '50_Sn_results_alpha_5_xi_h_1.000_xi_p_2.767.csv'
 
 # Call the main function
 if __name__ == "__main__":
-    main(file_name, output_dir)
+    main(hpc_results_dir, output_dir, start_file, end_file)

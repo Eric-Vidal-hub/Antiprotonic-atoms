@@ -1,6 +1,6 @@
 """
 Author: Eric Vidal Marcos
-Date: 14-03-2025
+Date: 26-03-2025
 Project: GS study using the FMD semi-classical model with V_H and V_P.
 
 This module contains the HamiltonianOptimizer class and the main script
@@ -278,13 +278,13 @@ directory = sys.argv[1]
 id = int(sys.argv[2])
 
 path = directory
-if os.path.exists(path) != True:
+if not os.path.exists(path):
     print('Directory not found.')
     print('Create Directory...')
     try:
         os.mkdir(path)
-    except:
-        print("Directory was already created by a different demon!")
+    except FileExistsError:
+        print("Directory was already created by a different process!")
 else:
     print('Directory exists!')
 
@@ -330,15 +330,15 @@ if not positive:
 
 # File name
 elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
-                    'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
-                    'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
-                    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr',
-                    'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn',
-                    'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd',
-                    'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb',
-                    'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
-                    'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
-                    'Pa', 'U']
+                 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
+                 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+                 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr',
+                 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn',
+                 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd',
+                 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb',
+                 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
+                 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
+                 'Pa', 'U']
 element = elements_list[e_num - 1]
 output_filename = os.path.join(path, f'{e_num:02d}_{element}.csv')
 
@@ -396,7 +396,7 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
     kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot = optimizer.\
         hamiltonian_components(optimal_config, e_num, e_spin)
     ground_state_energy = (kin_pot + nuc_pot + heisen_pot +
-                            pair_pot + pauli_pot)
+                           pair_pot + pauli_pot)
 
     writer.writerow({
         'e_num': e_num,
