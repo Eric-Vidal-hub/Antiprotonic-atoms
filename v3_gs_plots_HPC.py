@@ -97,12 +97,12 @@ def plot_electron_distribution(aggregated_df, output_dir):
 
             for i, r in enumerate(r0):
                 if i % 2 == 0:  # Even index -> Spin down
-                    plt.plot(e_num, r, 'v', linestyle='None',
+                    plt.plot(e_num, r, '^', linestyle='None',
                              markersize=markersize, markeredgecolor='black',
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
                 else:  # Odd index -> Spin up
-                    plt.plot(e_num, r, '^', linestyle='None',
+                    plt.plot(e_num, r, 'v', linestyle='None',
                              markersize=markersize, markeredgecolor='black',
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
@@ -133,16 +133,16 @@ def plot_momenta_distribution(aggregated_df, output_dir):
             e_num = int(row['e_num'])
             optimal_config = np.fromstring(row['optimal_configuration']
                                            .strip('[]'), sep=' ')
-            p0 = optimal_config[e_num:2*e_num]
+            p0 = optimal_config[3*e_num:4*e_num]
 
             for i, p in enumerate(p0):
                 if i % 2 == 0:  # Even index -> Spin down
-                    plt.plot(e_num, p, 'v', linestyle='None',
+                    plt.plot(e_num, p, '^', linestyle='None',
                              markersize=markersize, markeredgecolor='black',
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
                 else:  # Odd index -> Spin up
-                    plt.plot(e_num, p, '^', linestyle='None',
+                    plt.plot(e_num, p, 'v', linestyle='None',
                              markersize=markersize, markeredgecolor='black',
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
