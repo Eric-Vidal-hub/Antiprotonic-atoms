@@ -324,40 +324,13 @@ elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
                  'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr']
 
 # Try to pick the optimized configuration of a previous element plus one rnd e
-previous_element_filename = os.path.join(
-    path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
-)
-
-if os.path.exists(previous_element_filename):
-    # print(f'Loading configuration from {previous_element_filename}')
-    with open(previous_element_filename, 'r', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        rows = list(reader)
-        if rows:
-            last_row = rows[-1]
-            try:
-                prev_config = np.fromstring(
-                    last_row['optimal_configuration'].strip('[]'), sep=' '
-                )
-                # Add one random electron to the configuration
-                random_electron = optimizer.generate_initial_config(1)
-                ini_config = np.concatenate((prev_config, random_electron))
-            except Exception as e:
-                print(f"Error loading previous configuration: {e}")
-                print("Generating configuration from scratch.")
-                ini_config = optimizer.generate_initial_config(e_num)
-        else:
-            print("Previous configuration file is empty. Generating from scratch.")
-            ini_config = optimizer.generate_initial_config(e_num)
-else:
-    # Try to load from fallback path
-    fallback_path = os.path.abspath('HPC_results_gs_with_random_ic')
-    fallback_filename = os.path.join(
-        fallback_path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
+if p_num > 1 and (p_num - 2) < len(elements_list):
+    previous_element_filename = os.path.join(
+        path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
     )
-    if os.path.exists(fallback_filename):
-        # print(f'Loading configuration from {fallback_filename}')
-        with open(fallback_filename, 'r', encoding='utf-8') as csvfile:
+
+    if os.path.exists(previous_element_filename):
+        with open(previous_element_filename, 'r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             rows = list(reader)
             if rows:
@@ -366,19 +339,22 @@ else:
                     prev_config = np.fromstring(
                         last_row['optimal_configuration'].strip('[]'), sep=' '
                     )
+                    # Add one random electron to the configuration
                     random_electron = optimizer.generate_initial_config(1)
                     ini_config = np.concatenate((prev_config, random_electron))
                 except Exception as e:
-                    print(f"Error loading fallback configuration: {e}")
+                    print(f"Error loading previous configuration: {e}")
                     print("Generating configuration from scratch.")
                     ini_config = optimizer.generate_initial_config(e_num)
             else:
-                print("Fallback configuration file is empty. Generating from scratch.")
+                print("Previous configuration file is empty. Generating from scratch.")
                 ini_config = optimizer.generate_initial_config(e_num)
     else:
-        # Generate from scratch
-        # print('No previous configuration found. Generating from scratch.')
+        print("Previous configuration file not found. Generating from scratch.")
         ini_config = optimizer.generate_initial_config(e_num)
+else:
+    print("Invalid proton number for previous configuration. Generating from scratch.")
+    ini_config = optimizer.generate_initial_config(e_num)
 
 # Check if the initial configuration has positive values
 positive = (
