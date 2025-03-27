@@ -412,7 +412,7 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
                 ini_config[3 * e_num:4 * e_num]
             )
         result = fmin_bfgs(
-            optimizer.hamiltonian, ini_config, args=(e_num, e_spin),
+            optimizer.hamiltonian, ini_config, args=(e_num, e_spin, p_num),
             gtol=gtol, full_output=True, disp=False, retall=False
         )
         optimal_config, fopt, gopt, Bopt, func_calls, grad_calls, \
@@ -434,7 +434,7 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
 
     # Extract individual components of the Hamiltonian
     kin_pot, nuc_pot, heisen_pot, pair_pot, pauli_pot = optimizer.\
-        hamiltonian_components(optimal_config, e_num, e_spin)
+        hamiltonian_components(optimal_config, e_num, e_spin, p_num)
     ground_state_energy = (kin_pot + nuc_pot + heisen_pot +
                            pair_pot + pauli_pot)
 
