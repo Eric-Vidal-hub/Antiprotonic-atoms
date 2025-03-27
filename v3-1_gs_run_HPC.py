@@ -1,6 +1,6 @@
 """
 Author: Eric Vidal Marcos
-Date: 26-03-2025
+Date: 27-03-2025
 Project: GS study using the FMD semi-classical model with V_H and V_P.
 
 This module contains the HamiltonianOptimizer class and the main script
@@ -83,9 +83,9 @@ class HamiltonianOptimizer:
         theta0 = np.concatenate((theta0, np.pi - theta0[:e_num - half_e_num]))
         phi0 = np.concatenate((phi0, phi0[:e_num - half_e_num] + np.pi))
 
-        p0 = r0  # Ini momenta for p
-        theta_p0 = theta0  # Ini polar angles for p same as theta0
-        phi_p0 = phi0  # Ini azimuthal angles for p same as phi0
+        p0 = r0             # Ini momenta for p
+        theta_p0 = theta0   # Ini polar angles for p same as theta0
+        phi_p0 = phi0       # Ini azimuthal angles for p same as phi0
 
         return np.concatenate((p0, theta_p0, phi_p0, p0, theta_p0, phi_p0))
 
@@ -118,7 +118,7 @@ class HamiltonianOptimizer:
 
         return x_coord, y_coord, z_coord, px, py, pz
 
-    def one_body_potentials(self, rr, pp):
+    def one_body_potentials(self, rr, pp, p_num):
         """Calculates the one-body potentials.
 
         Calculates the kinetic energy, nuclear-electron Coulomb potential,
@@ -132,8 +132,8 @@ class HamiltonianOptimizer:
             A tuple containing the kinetic, nuclear, and Heisenberg potentials.
         """
 
-        kin_pot = np.sum(0.5 * pp ** 2)  # Kinetic energy
-        nuc_pot = -np.sum(len(rr) / rr)  # Nuclear-e Coulomb potential
+        kin_pot = np.sum(0.5 * pp ** 2)     # Kinetic energy
+        nuc_pot = -np.sum(p_num / rr)       # Nuclear-e Coulomb potential
         heisen_pot = np.sum(
             self.xi_h ** 2 * np.exp(self.alpha *
                                     (1 - (rr * pp / self.xi_h) ** 4)) /
@@ -191,7 +191,7 @@ class HamiltonianOptimizer:
                         )
         return pair_pot, pauli_pot
 
-    def hamiltonian(self, xx, e_num, e_spin):
+    def hamiltonian(self, xx, e_num, e_spin, p_num):
         """Calculates the total Hamiltonian.
 
         Calculates the total Hamiltonian of the system for the given
@@ -224,14 +224,14 @@ class HamiltonianOptimizer:
             rr, theta, phi, pp, theta_p, phi_p
         )
 
-        kin_pot, nuc_pot, heisen_pot = self.one_body_potentials(rr, pp)
+        kin_pot, nuc_pot, heisen_pot = self.one_body_potentials(rr, pp, p_num)
         pair_pot, pauli_pot = self.two_body_potentials(
             e_num, e_spin, x_coord, y_coord, z_coord, px, py, pz
         )
 
         return kin_pot + nuc_pot + heisen_pot + pair_pot + pauli_pot
 
-    def hamiltonian_components(self, xx, e_num, e_spin):
+    def hamiltonian_components(self, xx, e_num, e_spin, p_num):
         """Calculates individual components of the Hamiltonian.
 
         Calculates the kinetic, nuclear, Heisenberg, pair, and Pauli potentials
@@ -265,7 +265,7 @@ class HamiltonianOptimizer:
             rr, theta, phi, pp, theta_p, phi_p
         )
 
-        kin_pot, nuc_pot, heisen_pot = self.one_body_potentials(rr, pp)
+        kin_pot, nuc_pot, heisen_pot = self.one_body_potentials(rr, pp, p_num)
         pair_pot, pauli_pot = self.two_body_potentials(
             e_num, e_spin, x_coord, y_coord, z_coord, px, py, pz
         )
@@ -275,14 +275,15 @@ class HamiltonianOptimizer:
 
 # DIRECTORY TO SAVE THE RESULTS
 directory = sys.argv[1]
-id = int(sys.argv[2])
+dif_p_e = int(sys.argv[2])
+id = int(sys.argv[3])
 
-path = directory
+path = os.path.abspath(directory)  # Ensure absolute path
 if not os.path.exists(path):
     print('Directory not found.')
     print('Create Directory...')
     try:
-        os.mkdir(path)
+        os.makedirs(path)  # Use makedirs to create intermediate directories if needed
     except FileExistsError:
         print("Directory was already created by a different process!")
 else:
@@ -294,17 +295,8 @@ xi_h = 1.000    # Tuning parameter for the Heisenberg potential
 xi_p = 2.767    # Tuning parameter for the Pauli potential
 maxiter = 20    # Maximum number of iterations for optimization
 gtol = 1e-4     # Gradient tolerance for optimization
-e_num = id
-# SCALING PARAMETERS according to alpha
-# xi_h = xi_h / np.sqrt(1 + 1 / (2 * alpha))
-# xi_p = xi_p / np.sqrt(1 + 1 / (2 * alpha))
-# print(f'For alpha = {alpha}: xi_h = {xi_h:.3f}, xi_p = {xi_p:.3f}')
-
-# OPTIMIZERS: ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B',
-# TNC', 'COBYLA', 'SLSQP', 'trust-constr', 'dogleg', 'trust-ncg',
-# 'trust-exact', 'trust-krylov']
-# Powell and SLSQP very fast Not proper electron structure and convergence
-# optimizers = ['BFGS', 'trust-constr']     # are the best ones
+p_num = id      # Number of protons
+e_num = p_num + dif_p_e     # Number of electrons
 
 optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
 
@@ -315,8 +307,67 @@ converged = False
 # Generate electron spins for arbitrary e_num
 e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
 
-# Generate initial configuration
-ini_config = optimizer.generate_initial_config(e_num)
+# File name
+# elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
+#                  'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
+#                  'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+#                  'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr',
+#                  'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn',
+#                  'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd',
+#                  'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb',
+#                  'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
+#                  'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
+#                  'Pa', 'U']
+elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
+                 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
+                 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
+                 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr']
+
+# Try to pick the optimized configuration of a previous element plus one rnd e
+previous_element_filename = os.path.join(
+    path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
+)
+
+if os.path.exists(previous_element_filename):
+    # print(f'Loading configuration from {previous_element_filename}')
+    with open(previous_element_filename, 'r', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = list(reader)
+        if rows:
+            last_row = rows[-1]
+            prev_config = np.fromstring(
+                last_row['optimal_configuration'].strip('[]'), sep=' '
+            )
+            # Add one random electron to the configuration
+            random_electron = optimizer.generate_initial_config(1)
+            ini_config = np.concatenate((prev_config, random_electron))
+        else:
+            raise ValueError('Previous configuration file is empty.')
+else:
+    # Try to load from HPC_results_gs_with_random_ic
+    fallback_path = os.path.abspath('HPC_results_gs_with_random_ic')
+    fallback_filename = os.path.join(
+        fallback_path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
+    )
+    if os.path.exists(fallback_filename):
+        # print(f'Loading configuration from {fallback_filename}')
+        with open(fallback_filename, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+            if rows:
+                last_row = rows[-1]
+                prev_config = np.fromstring(
+                    last_row['optimal_configuration'].strip('[]'), sep=' '
+                )
+                # Add one random electron to the configuration
+                random_electron = optimizer.generate_initial_config(1)
+                ini_config = np.concatenate((prev_config, random_electron))
+            else:
+                raise ValueError('Fallback configuration file is empty.')
+    else:
+        # Generate from scratch
+        # print('No previous configuration found. Generating from scratch.')
+        ini_config = optimizer.generate_initial_config(e_num)
 
 # Check if the initial configuration has positive values
 positive = (
@@ -328,24 +379,13 @@ positive = (
 if not positive:
     raise ValueError('Initial configuration has negative values for r0 or p0')
 
-# File name
-elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
-                 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
-                 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
-                 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr',
-                 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn',
-                 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd',
-                 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb',
-                 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg',
-                 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
-                 'Pa', 'U']
-element = elements_list[e_num - 1]
-output_filename = os.path.join(path, f'{e_num:02d}_{element}.csv')
+element = elements_list[p_num - 1]
+output_filename = os.path.join(path, f'{p_num:02d}_{element}_{e_num:02d}e.csv')
 
 # Open the CSV file to write the results
 with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
     fieldnames = [
-        'e_num', 'message', 'time_taken', 'ground_state_energy',
+        'p_num', 'e_num', 'message', 'time_taken', 'ground_state_energy',
         'kinetic_energy', 'nuclear_potential', 'heisenberg_potential',
         'pair_potential', 'pauli_potential', 'optimal_configuration'
     ]
@@ -399,6 +439,7 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
                            pair_pot + pauli_pot)
 
     writer.writerow({
+        'p_num': p_num,
         'e_num': e_num,
         'ground_state_energy': f'{ground_state_energy:.3f}',
         'kinetic_energy': f'{kin_pot:.3f}',

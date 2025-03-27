@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --array=0-62
+#SBATCH --array=0-38
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=249G
 #SBATCH --time=60:00:00
@@ -14,6 +14,6 @@ cd ~/Antiprotonic-atoms/
 
 for ((z=0;z<=15;z++))
 do
-        python v3_gs_run_HPC.py /scratch/vym17xaj/gs_z_18 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*16)+$z") &
+        python v3_gs_run_HPC.py /scratch/vym17xaj/HPC_results_gs_with_previous_z_as_ic 0 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*16)+$z") &
 done
 wait
