@@ -335,16 +335,22 @@ if os.path.exists(previous_element_filename):
         rows = list(reader)
         if rows:
             last_row = rows[-1]
-            prev_config = np.fromstring(
-                last_row['optimal_configuration'].strip('[]'), sep=' '
-            )
-            # Add one random electron to the configuration
-            random_electron = optimizer.generate_initial_config(1)
-            ini_config = np.concatenate((prev_config, random_electron))
+            try:
+                prev_config = np.fromstring(
+                    last_row['optimal_configuration'].strip('[]'), sep=' '
+                )
+                # Add one random electron to the configuration
+                random_electron = optimizer.generate_initial_config(1)
+                ini_config = np.concatenate((prev_config, random_electron))
+            except Exception as e:
+                print(f"Error loading previous configuration: {e}")
+                print("Generating configuration from scratch.")
+                ini_config = optimizer.generate_initial_config(e_num)
         else:
-            raise ValueError('Previous configuration file is empty.')
+            print("Previous configuration file is empty. Generating from scratch.")
+            ini_config = optimizer.generate_initial_config(e_num)
 else:
-    # Try to load from HPC_results_gs_with_random_ic
+    # Try to load from fallback path
     fallback_path = os.path.abspath('HPC_results_gs_with_random_ic')
     fallback_filename = os.path.join(
         fallback_path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
@@ -356,14 +362,19 @@ else:
             rows = list(reader)
             if rows:
                 last_row = rows[-1]
-                prev_config = np.fromstring(
-                    last_row['optimal_configuration'].strip('[]'), sep=' '
-                )
-                # Add one random electron to the configuration
-                random_electron = optimizer.generate_initial_config(1)
-                ini_config = np.concatenate((prev_config, random_electron))
+                try:
+                    prev_config = np.fromstring(
+                        last_row['optimal_configuration'].strip('[]'), sep=' '
+                    )
+                    random_electron = optimizer.generate_initial_config(1)
+                    ini_config = np.concatenate((prev_config, random_electron))
+                except Exception as e:
+                    print(f"Error loading fallback configuration: {e}")
+                    print("Generating configuration from scratch.")
+                    ini_config = optimizer.generate_initial_config(e_num)
             else:
-                raise ValueError('Fallback configuration file is empty.')
+                print("Fallback configuration file is empty. Generating from scratch.")
+                ini_config = optimizer.generate_initial_config(e_num)
     else:
         # Generate from scratch
         # print('No previous configuration found. Generating from scratch.')
