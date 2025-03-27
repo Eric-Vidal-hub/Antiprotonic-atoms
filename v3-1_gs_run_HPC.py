@@ -298,8 +298,6 @@ gtol = 1e-4     # Gradient tolerance for optimization
 p_num = id      # Number of protons
 e_num = p_num + dif_p_e     # Number of electrons
 
-optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
-
 # OPTIMIZATION PARAMETERS
 iter_num = 0
 converged = False
@@ -307,7 +305,7 @@ converged = False
 # Generate electron spins for arbitrary e_num
 e_spin = np.array([1 if i % 2 == 0 else -1 for i in range(e_num)])
 
-# File name
+# File name according to the element
 elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
                  'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
                  'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
@@ -319,40 +317,45 @@ elements_list = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
                  'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th',
                  'Pa', 'U']
 
-# Try to pick the optimized configuration of a previous element plus one rnd e
-if p_num > 1 and (p_num - 2) < len(elements_list):
-    previous_element_filename = os.path.join(
-        path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
-    )
-
-    if os.path.exists(previous_element_filename):
-        with open(previous_element_filename, 'r', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            rows = list(reader)
-            if rows:
-                last_row = rows[-1]
-                try:
-                    prev_config = np.fromstring(
-                        last_row['optimal_configuration'].strip('[]'), sep=' '
-                    )
-                    # Add one random electron to the configuration
-                    random_electron = optimizer.generate_initial_config(1)
-                    ini_config = np.concatenate((prev_config, random_electron))
-                except Exception as e:
-                    print(f"Error loading previous configuration: {e}")
-                    print("Generating configuration from scratch.")
-                    ini_config = optimizer.generate_initial_config(e_num)
-            else:
-                print("Previous configuration file is empty. Generating from scratch.")
-                ini_config = optimizer.generate_initial_config(e_num)
-    else:
-        print("Previous configuration file not found. Generating from scratch.")
-        ini_config = optimizer.generate_initial_config(e_num)
+# Check if the proton number is valid
+if 1 <= p_num <= len(elements_list):
+    element = elements_list[p_num - 1]
 else:
-    print("Invalid proton number for previous configuration. Generating from scratch.")
+    raise ValueError(f"Invalid proton number {p_num}. It must be between 1 and {len(elements_list)}.")
+
+# Initialize the HamiltonianOptimizer
+optimizer = HamiltonianOptimizer(alpha, xi_h, xi_p)
+
+# Try to pick the optimized configuration of a previous element plus one rnd e
+previous_element_filename = os.path.join(
+    path, f'{p_num - 1:02d}_{elements_list[p_num - 2]}_{e_num - 1:02d}e.csv'
+)
+
+if os.path.exists(previous_element_filename):
+    with open(previous_element_filename, 'r', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = list(reader)
+        if rows:
+            last_row = rows[-1]
+            try:
+                prev_config = np.fromstring(
+                    last_row['optimal_configuration'].strip('[]'), sep=' '
+                )
+                # Add one random electron to the configuration
+                random_electron = optimizer.generate_initial_config(1)
+                ini_config = np.concatenate((prev_config, random_electron))
+            except Exception as e:
+                print(f"Error loading previous configuration: {e}")
+                print("Generating configuration from scratch.")
+                ini_config = optimizer.generate_initial_config(e_num)
+        else:
+            print("Previous configuration file is empty. Generating from scratch.")
+            ini_config = optimizer.generate_initial_config(e_num)
+else:
+    print("Previous configuration file not found. Generating from scratch.")
     ini_config = optimizer.generate_initial_config(e_num)
 
-# Check if the initial configuration has positive values
+# Check if all variables in the initial configuration have positive values
 positive = (
     np.all(ini_config[:e_num] > 0) and
     np.all(ini_config[3 * e_num:4 * e_num] > 0)
@@ -360,7 +363,17 @@ positive = (
 
 # Value Error if positive is False
 if not positive:
-    raise ValueError('Initial configuration has negative values for r0 or p0')
+    ini_config[:e_num] = np.abs(ini_config[:e_num])
+    ini_config[3 * e_num:4 * e_num] = np.abs(
+        ini_config[3 * e_num:4 * e_num]
+    )
+    ini_config[:e_num] = np.where(
+        ini_config[:e_num] > 50, 1, ini_config[:e_num]
+    )
+    ini_config[3 * e_num:4 * e_num] = np.where(
+        ini_config[3 * e_num:4 * e_num] > 50, 1,
+        ini_config[3 * e_num:4 * e_num]
+    )
 
 element = elements_list[p_num - 1]
 output_filename = os.path.join(path, f'{p_num:02d}_{element}_{e_num:02d}e.csv')
