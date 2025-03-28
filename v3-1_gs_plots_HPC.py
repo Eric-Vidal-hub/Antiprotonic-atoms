@@ -262,12 +262,12 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
 
 # Define the directories
 hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                   'HPC_results_gs_with_previous_z_as_ic')
+                   'HPC_results_gs_with_previous_z_as_ic_new')
 output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
 
 # Specify the file range (optional)
 start_file = '01_H_01e.csv'
-end_file = '40_Zr_40e.csv'
+end_file = '52_Te_52e.csv'
 
 # Call the main function
 if __name__ == "__main__":
