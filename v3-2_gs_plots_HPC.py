@@ -234,10 +234,15 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
                 if df.empty:
                     print(f"Skipping empty file: {filename}")
                     continue
+                if df.isnull().values.any():
+                    print(f"Skipping file with NaN values: {filename}")
+                    continue
                 df['file_name'] = filename  # Add a column to track
                 aggregated_data.append(df)
             except pd.errors.EmptyDataError:
                 print(f"Skipping invalid or empty file: {filename}")
+            except pd.errors.ParserError as e:
+                print(f"Skipping file due to parsing error ({filename}): {e}")
             except Exception as e:
                 print(f"Error reading file {filename}: {e}")
 
@@ -262,12 +267,12 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
 
 # Define the directories
 hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                   'HPC_results_gs_with_previous_z_as_ic_new')
+                   'HPC_results_gs_with_alpha_modifying')
 output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
 
 # Specify the file range (optional)
 start_file = '01_H_01e.csv'
-end_file = '52_Te_52e.csv'
+end_file = '38_Sr_38e.csv'
 
 # Call the main function
 if __name__ == "__main__":
