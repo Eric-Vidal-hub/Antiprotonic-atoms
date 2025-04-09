@@ -3,7 +3,7 @@
 #SBATCH --array=0-16
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=249G
-#SBATCH --time=60:00:00
+#SBATCH --time=30:00:00
 #SBATCH -p epyc-256
 
 module load anaconda3/latest
