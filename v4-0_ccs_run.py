@@ -33,7 +33,7 @@ ALPHA_H = 5.0
 XI_H = 1.000
 
 # --- Simulation Parameters ---
-GROUND_STATE_FILE = 'HPC_results/02_He_results_alpha_5_xi_h_1.000_xi_p_2.767.csv' # Input ground state file
+GROUND_STATE_FILE = 'HPC_results_gs_with_alpha_modifying/02_He_02e.csv'  # Input ground state file
 T_VALUES_AU = [3.0, 1.5, 0.5, 0.1]  # Initial pbar kinetic energies to scan
 B_MAX = 3.5         # Maximum impact parameter to scan
 B_STEP = 0.1        # Step size for impact parameter scan
