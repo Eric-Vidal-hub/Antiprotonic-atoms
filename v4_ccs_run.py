@@ -21,8 +21,8 @@ from scipy.integrate import solve_ivp
 M_PROTON = 1836.15267343
 M_ALPHA = 4 * M_PROTON
 M_PBAR = M_PROTON
-M_E = 1.0
-Mstar = 1469.0 # Reduced mass from paper
+M_ELECTRON = 1.0
+Mstar = 1 / (1 / M_ALPHA + 1 / M_PROTON)  # Reduced mass
 
 Q_E = -1.0
 Q_PBAR = -1.0
@@ -81,7 +81,7 @@ def derivatives(t, y, m_pbar_reduced, alpha_h, xi_h):
         pi = np.linalg.norm(p_e[i]) + EPSILON
         ri_vec = r_e[i]
         pi_vec = p_e[i]
-        dr_dt_ke = p_e[i] / M_E
+        dr_dt_ke = p_e[i] / M_ELECTRON
         term_in_exp = 1 - (ri * pi / xi_h)**4
         exp_term = np.exp(alpha_h * term_in_exp)
         common_factor_vh = (xi_h**2) / (4 * alpha_h * ri**2)
@@ -195,7 +195,7 @@ def analyze_final_state(y_f, T_initial_au):
         # Check ionization state of electrons relative to (alpha + pbar)
         ionized_count = 0
         for i in range(e_num):
-            ke_e = np.sum(p_e_f[i]**2) / (2.0 * M_E)
+            ke_e = np.sum(p_e_f[i]**2) / (2.0 * M_ELECTRON)
             pe_alpha_e = Q_E * Q_ALPHA / (np.linalg.norm(r_e_f[i]) + EPSILON)
             pe_pbar_e = Q_E * Q_PBAR / (np.linalg.norm(r_e_f[i] - R_p_f) + EPSILON)
             E_e_total = ke_e + pe_alpha_e + pe_pbar_e
