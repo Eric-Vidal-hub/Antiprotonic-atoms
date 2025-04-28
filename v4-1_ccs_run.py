@@ -21,41 +21,43 @@ Dependencies:
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
+from tqdm import tqdm  # Import tqdm for the progress bar
 
 
-# Placeholder functions for forces -- to be implemented
-    def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
-        """Converts spherical coordinates to Cartesian coordinates.
+#%% FUNCTIONS
+def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
+    """Converts spherical coordinates to Cartesian coordinates.
 
-        Converts the given spherical coordinates (r, theta, phi) and momenta
-        (p, theta_p, phi_p) to Cartesian coordinates (x, y, z) and momenta
-        (px, py, pz).
+    Converts the given spherical coordinates (r, theta, phi) and momenta
+    (p, theta_p, phi_p) to Cartesian coordinates (x, y, z) and momenta
+    (px, py, pz).
 
-        Args:
-            rr: Radial distance.
-            theta: Polar angle.
-            phi: Azimuthal angle.
-            pp: Momentum magnitude.
-            theta_p: Polar angle of momentum.
-            phi_p: Azimuthal angle of momentum.
+    Args:
+        rr: Radial distance.
+        theta: Polar angle.
+        phi: Azimuthal angle.
+        pp: Momentum magnitude.
+        theta_p: Polar angle of momentum.
+        phi_p: Azimuthal angle of momentum.
 
-        Returns:
-            A tuple containing the Cartesian coordinates (x, y, z, px, py, pz).
-        """
-
-        x_coord = rr * np.sin(theta) * np.cos(phi)
-        y_coord = rr * np.sin(theta) * np.sin(phi)
-        z_coord = rr * np.cos(theta)
-
-        px = pp * np.sin(theta_p) * np.cos(phi_p)
-        py = pp * np.sin(theta_p) * np.sin(phi_p)
-        pz = pp * np.cos(theta_p)
-
-        return x_coord, y_coord, z_coord, px, py, pz
-
-
-def compute_forces(state):
+    Returns:
+        A tuple containing the Cartesian coordinates (x, y, z, px, py, pz).
     """
+
+    x_coord = rr * np.sin(theta) * np.cos(phi)
+    y_coord = rr * np.sin(theta) * np.sin(phi)
+    z_coord = rr * np.cos(theta)
+
+    px = pp * np.sin(theta_p) * np.cos(phi_p)
+    py = pp * np.sin(theta_p) * np.sin(phi_p)
+    pz = pp * np.cos(theta_p)
+
+    return x_coord, y_coord, z_coord, px, py, pz
+
+
+def compute_forces(t, state):
+    """
+    Generalized force computation for an arbitrary number of electrons.
     Given state vector y = [r1(3), r2(3), ..., r_p(3), p1(3), p2(3), ..., p_p(3)],
     returns derivatives dy/dt according to Hamilton's equations.
     """
@@ -69,20 +71,67 @@ def compute_forces(state):
     pp = state[3 * (2 * num_electrons):3 * (2 * num_electrons) + 3]
 
     # Initialize derivatives
-    dr_electrons_dt = p_electrons  # electron mass = 1 a.u.
+    dr_electrons_dt = []
+    dp_electrons_dt = []
     drp_dt = pp / M_PBAR
 
-    # Compute forces: -dV/dr for all interactions + Heisenberg core
-    # Coulomb terms: electron-nucleus, electron-electron, electron-antiproton, antiproton-nucleus
-    # and Heisenberg core on electrons
-    # TODO: fill in exact force expressions
+    # Compute forces for each electron
+    for i in range(num_electrons):
+        ri = r_electrons[i]
+        pi = p_electrons[i]
+        ri_norm = np.linalg.norm(ri)
+        pi_norm = np.linalg.norm(pi)
 
-    F_electrons = [np.zeros(3) for _ in range(num_electrons)]
-    Fp = np.zeros(3)
+        # Heisenberg core factors
+        Xi = (ri_norm * pi_norm / XI_H)
+        E_hi = np.exp(ALPHA * (1 - Xi**4))
 
-    # dp/dt = force
-    dp_electrons_dt = F_electrons
-    dpp_dt = Fp
+        # dr/dt from p + Heisenberg momentum term
+        dVdpi_mag = -(ri_norm**2 * pi_norm**3 / XI_H**2) * E_hi
+        dri_dt = pi + (dVdpi_mag * (pi / pi_norm))
+
+        # Coulomb forces
+        # Electron-nucleus: F = +2 r/r^3
+        Fi_nuc = 2 * ri / ri_norm**3
+
+        # Electron-electron interactions
+        Fi_ee = np.zeros(3)
+        for j in range(num_electrons):
+            if i != j:
+                rj = r_electrons[j]
+                rij = ri - rj
+                norm_ij = np.linalg.norm(rij)
+                Fi_ee += -rij / norm_ij**3
+
+        # Electron-antiproton: F = - (r_i - r_p)/|r_i-r_p|^3
+        rip = ri - rp
+        norm_ip = np.linalg.norm(rip)
+        Fi_ep = -rip / norm_ip**3
+
+        # Heisenberg core radial force
+        Fhi_rad = (XI_H**2 * E_hi / (2 * ALPHA * ri_norm**3) +
+                   (ri_norm * pi_norm**4 / XI_H**2) * E_hi)
+        Fhi = Fhi_rad * (ri / ri_norm)
+
+        # Total dp/dt for this electron
+        dpi_dt = Fi_nuc + Fi_ee + Fi_ep + Fhi
+
+        # Append results
+        dr_electrons_dt.append(dri_dt)
+        dp_electrons_dt.append(dpi_dt)
+
+    # Forces on antiproton
+    # Antiproton-nucleus: F = +2 r_p/r_p^3
+    Fp_nuc = 2 * rp / np.linalg.norm(rp)**3
+
+    # Antiproton-electron interactions
+    Fp_e = np.zeros(3)
+    for ri in r_electrons:
+        rip = ri - rp
+        norm_ip = np.linalg.norm(rip)
+        Fp_e += rip / norm_ip**3
+
+    dpp_dt = Fp_nuc + Fp_e
 
     # Combine derivatives
     derivatives = []
@@ -170,7 +219,7 @@ print(f"Initial position of electrons: {r0}")
 
 # Convert to Cartesian coordinates
 rx, ry, rz, px, py, pz = convert_to_cartesian(
-    r0[0], theta_r[0], phi_r[0], p0[0], theta_p[0], phi_p[0])
+    r0, theta_r, phi_r, p0, theta_p, phi_p)
 
 # STORAGE PARAMETERS
 cross_data = []
@@ -181,6 +230,7 @@ traj_saved = False
 
 # DYNAMIC SIMULATION
 for E0 in ENERGIES:
+    # Initialize counters
     n_cap = 0
     n_single = 0
     n_double = 0
@@ -193,7 +243,7 @@ for E0 in ENERGIES:
     else:
         bmax = B3
 
-    for i in range(N_TRAJ):
+    for i in tqdm(range(N_TRAJ), desc=f"Processing trajectories for E0={E0}"):
         # Random impact parameter uniform in area
         b = np.sqrt(np.random.random()) * bmax
         theta = 2 * np.pi * np.random.random()
@@ -208,36 +258,58 @@ for E0 in ENERGIES:
                  np.array([px, py, pz]).flatten(), vpbar0 * M_PBAR]
             )
 
+        # print("Initial state vector:", y0)
+        # print("Length of y0:", len(y0))
+
         # Integrate
-            sol = solve_ivp(
-                compute_forces,
-                (0.0, T_MAX), y0,
-                method='RK45', rtol=1e-6, atol=1e-9
-            )
+        sol = solve_ivp(
+            compute_forces,
+            (0.0, T_MAX), y0,
+            method='RK45', rtol=1e-6, atol=1e-9
+        )
 
-            yf = sol.y[:, -1]
-            cap_type = classify_capture(yf, e_num)
-            if cap_type != 'none':
-                n_cap += 1
-                if cap_type == 'single':
-                    n_single += 1
-                else:
-                    n_double += 1
-                if not traj_saved:
-                    times = sol.t
-                    r_p = np.linalg.norm(sol.y[3 * e_num:3 * e_num + 3, :], axis=0)
-                    df_traj = pd.DataFrame({'time': times, 'r_p': r_p})
-                    df_traj.to_csv('trajectory_example.csv', index=False)
-                    traj_saved = True
+        # print("Integration successful:", sol.success)
+        # print("Length of sol.y:", len(sol.y))
+        # print("Shape of sol.y:", sol.y.shape)
+        # print("Vector of sol.y:", sol.y)
 
-            # Record initial and final (E,L)
-            L_init = np.linalg.norm(np.cross(rp0, vp0 * M_PBAR))
-            initial_states.append((E0, L_init, cap_type))
-            rpf = yf[3 * e_num:3 * e_num + 3]
-            vpf = yf[3 * (2 * e_num):3 * (2 * e_num) + 3] / M_PBAR
-            E_pf = 0.5 * np.dot(vpf, vpf) * M_PBAR - 2.0 / np.linalg.norm(rpf)
-            L_pf = np.linalg.norm(np.cross(rpf, yf[3 * (2 * e_num):3 * (2 * e_num) + 3]))
-            final_states.append((E_pf, L_pf, cap_type))
+        yf = sol.y[:, -1]
+        cap_type = classify_capture(yf, e_num)
+        if cap_type != 'none':
+            n_cap += 1
+            if cap_type == 'single':
+                n_single += 1
+            else:
+                n_double += 1
+            if not traj_saved:
+                times = sol.t
+                r_p = np.linalg.norm(sol.y[3 * e_num:3 * e_num + 3, :], axis=0)
+                df_traj = pd.DataFrame({'time': times, 'r_p': r_p})
+                df_traj.to_csv('trajectory_example.csv', index=False)
+                traj_saved = True
+
+        # Record initial and final (E,L)
+        L_init = np.linalg.norm(np.cross(rpbar0, vpbar0 * M_PBAR))
+        initial_states.append((E0, L_init, cap_type))
+
+        # print("Length of yf:", len(yf))
+        # print("Slice for vpf:", 3 * (2 * e_num), "to", 3 * (2 * e_num) + 3)
+
+        # Extract final position and momentum of the antiproton
+        rpf = yf[3 * e_num:3 * e_num + 3]  # Final position of the antiproton
+        vpf = yf[3 * (2 * e_num):3 * (2 * e_num) + 3] / M_PBAR  # Final velocity of the antiproton
+
+        # Ensure the vectors are 1D with 3 elements
+        rpf = np.array(rpf).flatten()
+        vpf = np.array(vpf).flatten()
+
+        # Compute final energy and angular momentum
+        E_pf = 0.5 * np.dot(vpf, vpf) * M_PBAR - 2.0 / np.linalg.norm(rpf)
+        # print("rpf shape:", rpf.shape)
+        # print("vpf shape:", vpf.shape)
+        L_pf = np.linalg.norm(np.cross(rpf, vpf * M_PBAR))
+
+        final_states.append((E_pf, L_pf, cap_type))
 
         # Compute cross sections
         sigma_tot = np.pi * bmax**2 * (n_cap / N_TRAJ)
