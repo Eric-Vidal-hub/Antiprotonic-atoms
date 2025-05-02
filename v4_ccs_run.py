@@ -153,12 +153,12 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 # initial antiproton energies (a.u.)
 # ENERGIES = [3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
 ENERGIES = [1.0, 0.5]
-N_TRAJ = 5          # trajectories per energy
+N_TRAJ = 2          # trajectories per energy
 T_MAX = 25000.0     # max time (a.u.)
 THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
-XPBAR = 10000.0      # initial distance of antiproton (a.u.)
+XPBAR = 10.0      # initial distance of antiproton (a.u.)
 # (far away from nucleus)
 
 # Physical constants
@@ -173,8 +173,9 @@ XI_H /= np.sqrt(1 + 1 / (2 * ALPHA))
 XI_P /= np.sqrt(1 + 1 / (2 * ALPHA))
 
 # INITIALIZATION
-# Load helium electron config
-helium_df = pd.read_csv('HPC_results_gs_with_alpha_modifying/02_He_02e.csv')
+DIRECTORY = 'HPC_results_gs_with_alpha_modifying/'
+FILE_NAME = '02_He_02e.csv'
+helium_df = pd.read_csv(DIRECTORY + FILE_NAME)
 
 # Ensure the expected columns exist
 required_col = ['p_num', 'e_num', 'optimal_configuration']
@@ -238,7 +239,7 @@ for E0 in ENERGIES:
     for i in tqdm(range(N_TRAJ), desc=f"Processing trajectories for E0={E0}"):
         # ANTIPROTON INITIALIZATION
         # Random impact parameter uniform in area
-        b = np.sqrt(np.random.random()) * bmax
+        b = np.sqrt(np.random.random() * bmax / np.pi)
         angle = 2 * np.pi * np.random.random()
         # Launch antiproton far away along +x with offset in y
         r0_pbar = np.array([-XPBAR, b * np.cos(angle), b * np.sin(angle)])
@@ -246,14 +247,14 @@ for E0 in ENERGIES:
         p0_pbar = np.array([np.sqrt(2 * E0 * M_STAR), 0.0, 0.0])
         # Record initial and final (E,L)
         L_init = np.linalg.norm(np.cross(r0_pbar, p0_pbar))
-        # Initial state vector
-        y0 = np.concatenate(
-                [np.array([rx, ry, rz]).flatten(), r0_pbar,
-                 np.array([px, py, pz]).flatten(), p0_pbar]
-            )
 
-        # print("Initial state vector:", y0)
-        # print("Length of y0:", len(y0))
+        # INITIAL STATE VECTOR
+        # coordinates per particle: re1(3), re2(3), ..., rpbar(3),
+        # momenta per particle: pe1(3), pe2(3), ..., ppbar(3)
+        y0 = np.concatenate(
+            [np.column_stack((rx, ry, rz)).flatten(), r0_pbar,
+             np.column_stack((px, py, pz)).flatten(), p0_pbar]
+            )
 
         # INTEGRATION
         sol = solve_ivp(
@@ -261,14 +262,14 @@ for E0 in ENERGIES:
             (0.0, T_MAX), y0,
             method='DOP853', rtol=1e-6, atol=1e-9
         )
-        # print("Integration successful:", sol.success)
-        # print("Length of sol.y:", len(sol.y))
-        # print("Shape of sol.y:", sol.y.shape)
-        # print("Vector of sol.y:", sol.y)
+        print("Integration successful:", sol.success)
+        print("Length of sol.y:", len(sol.y))
+        print("Shape of sol.y:", sol.y.shape)
+        print("Vector of sol.y:", sol.y)
 
         # SOLUTION
         yf = sol.y[:, -1]
-        # print("Final state vector:", yf)
+        print("Final state vector:", yf)
 
         # Extract initial position and momentum of the electrons
         rf_e = yf[:3 * e_num]
@@ -380,21 +381,22 @@ for E0 in ENERGIES:
             cap_type = 'none'
         
         # Track the trajectory of the first capture
-        if (cap_type == ('double' or 'single')) and (not traj_saved):
+        if (cap_type != ('double' or 'single')) and (not traj_saved):
             times = sol.t
             r_p = np.linalg.norm(sol.y[3 * e_num:3 * e_num + 3, :], axis=0)
             df_traj = pd.DataFrame({'time': times, 'r_p': r_p})
             df_traj.to_csv('trajectory_example.csv', index=False)
             traj_saved = True
+            print(" - trajectory_example.csv")
 
         initial_states.append((E0, L_init, cap_type))
         final_states.append((Ef_pbar, E_electrons, Lf_pbar, cap_type))
 
-        # COMPTUE CROSS SECTIONS
-        sigma_tot = np.pi * bmax**2 * (n_single + n_double) / N_TRAJ
-        sigma_sng = np.pi * bmax**2 * n_single / N_TRAJ
-        sigma_dbl = np.pi * bmax**2 * n_double / N_TRAJ
-        cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
+    # COMPUTE CROSS SECTIONS
+    sigma_tot = np.pi * bmax**2 * (n_single + n_double) / N_TRAJ
+    sigma_sng = np.pi * bmax**2 * n_single / N_TRAJ
+    sigma_dbl = np.pi * bmax**2 * n_double / N_TRAJ
+    cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
 
 # SAVE CSVs except trajectories which is just for the first capture
 pd.DataFrame(cross_data, columns=['Energy', 'Sigma_total', 'Sigma_single',
@@ -410,6 +412,5 @@ print("Simulation completed. CSV files written:")
 print(" - cross_sections.csv")
 print(" - initial_states.csv")
 print(" - final_states.csv")
-print(" - (Hopefully) trajectory_example.csv")
 print("Note: trajectory_example.csv is only saved for the first capture.")
 print("If you want to save all trajectories, please modify the code.")
