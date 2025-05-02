@@ -262,16 +262,12 @@ for E0 in ENERGIES:
             (0.0, T_MAX), y0,
             method='DOP853', rtol=1e-6, atol=1e-9
         )
-        print("Integration successful:", sol.success)
-        print("Length of sol.y:", len(sol.y))
-        print("Shape of sol.y:", sol.y.shape)
-        print("Vector of sol.y:", sol.y)
 
         # SOLUTION
         yf = sol.y[:, -1]
         print("Final state vector:", yf)
 
-        # Extract initial position and momentum of the electrons
+        # Extract initial position and momentum of electrons
         rf_e = yf[:3 * e_num]
         pf_e = yf[3 * (e_num + 1):-3]
         # Ensure the vectors are 1D
@@ -281,7 +277,7 @@ for E0 in ENERGIES:
         # Extract final position and momentum of the antiproton
         rf_pbar = yf[3 * e_num:3 * (e_num + 1)]
         pf_pbar = yf[-3:]
-        # Ensure the vectors are 1D with 3 elements
+        # Ensure the vectors are 1D
         rf_pbar = np.array(rf_pbar).flatten()
         pf_pbar = np.array(pf_pbar).flatten()
 
@@ -380,7 +376,8 @@ for E0 in ENERGIES:
         else:
             cap_type = 'none'
         
-        # Track the trajectory of the first capture
+        # # Track the trajectory of the first capture
+        # For the sake of study, we are saving the very first trajectory
         if (cap_type != ('double' or 'single')) and (not traj_saved):
             times = sol.t
             r_p = np.linalg.norm(sol.y[3 * e_num:3 * e_num + 3, :], axis=0)
