@@ -28,91 +28,81 @@ from tqdm import tqdm  # Import tqdm for the progress bar
 def compute_forces(t, state):
     """
     Generalized force computation for an arbitrary number of electrons.
-    Given state vector y = [r1(3), r2(3), ..., r_pbar(3),
-                            p1(3), p2(3), ..., p_pbar(3)].
+    Given state vector y = [r1(3), r2(3), ...,
+                            p1(3), p2(3), ..., r_pbar(3), p_pbar(3)].
     It returns derivatives dy/dt according to Hamilton's equations.
     """
     # Unpack state vector
-    # r1, r2, ..., rp: electron positions (3D vectors)
     num_electrons = (len(state) - 6) // 6  # Calculate the number of electrons
     # -6 for the antiproton position and momentum
     r_electrons = [state[3 * i:3 * (i + 1)] for i in range(num_electrons)]
     p_electrons = [state[3 * (num_electrons + i):3
                          * (num_electrons + i
                             + 1)] for i in range(num_electrons)]
-    rp = state[3 * num_electrons:3 * num_electrons + 3]
-    pp = state[3 * (2 * num_electrons):3 * (2 * num_electrons) + 3]
+    r_pbar = state[-6:-3]
+    p_pbar = state[-3:]
 
     # Initialize derivatives
     dr_electrons_dt = []
     dp_electrons_dt = []
-    dr_pbar_dt = pp / M_STAR
 
-    # Compute forces for each electron
-    for i in range(num_electrons):
-        ri = r_electrons[i]
-        pi = p_electrons[i]
+    # Cumulative term
+    dv_dR_epbar = np.zeros(3)
+
+    # COMPUTE t-der for r&p according to Hamiltonian eqs for each electron
+    for ii in range(num_electrons):
+        ri = r_electrons[ii]
+        pi = p_electrons[ii]
         ri_norm = np.linalg.norm(ri)
         pi_norm = np.linalg.norm(pi)
 
         # Heisenberg core factors
-        Xi = (ri_norm * pi_norm / XI_H)
-        E_hi = np.exp(ALPHA * (1 - Xi**4))
+        exp_hei = np.exp(ALPHA * (1 - (ri_norm * pi_norm / XI_H)**4))
+        v_hei = ri_norm * pi_norm**3 * exp_hei / XI_H**3
 
-        # dr/dt from p + Heisenberg momentum term
-        dVdpi_mag = -(ri_norm**2 * pi_norm**3 / XI_H**2) * E_hi
-        dri_dt = pi + (dVdpi_mag * (pi / pi_norm))
+        # T-DER r_i = (dV/dpi) = pi + (dV/dpi)_hei
+        dri_dt = pi - v_hei * ri
 
-        # Coulomb forces
-        # Electron-nucleus: F = +2 r/r^3
-        Fi_nuc = 2 * ri / ri_norm**3
+        # T-DER p_i = - (dV/dri) = (dV/dri)_nuc - (dV/dri)_ee
+        #                         - (dV/dri)_pbar - (dV/dri)_hei
+       
+        # e-nuc interaction
+        dv_dri_nuc = - ZZ * ri / ri_norm**3
 
-        # Electron-electron interactions
-        Fi_ee = np.zeros(3)
-        for j in range(num_electrons):
-            if i != j:
-                rj = r_electrons[j]
-                rij = ri - rj
-                norm_ij = np.linalg.norm(rij)
-                Fi_ee += -rij / norm_ij**3
+        # e-e interactions
+        dv_dri_ee = np.zeros(3)
+        for kk in range(num_electrons):
+            if ii != kk:
+                r_ik = ri - r_electrons[kk]
+                dv_dri_ee += np.abs(r_ik) / np.linalg.norm(r_ik)**3
 
-        # Electron-antiproton: F = - (r_i - r_p)/|r_i-r_p|^3
-        rip = ri - rp
-        norm_ip = np.linalg.norm(rip)
-        Fi_ep = -rip / norm_ip**3
+        # e-pbar interaction: F = - |x_i,j - X_pbar,j|/||r_i-r_pbar||^3
+        r_ipbar = ri - r_pbar
+        dv_dri_epbar = np.abs(r_ipbar) / np.linalg.norm(r_ipbar)**3
 
-        # Heisenberg core radial force
-        Fhi_rad = (XI_H**2 * E_hi / (2 * ALPHA * ri_norm**3) +
-                   (ri_norm * pi_norm**4 / XI_H**2) * E_hi)
-        Fhi = Fhi_rad * (ri / ri_norm)
+        # TOTAL dp/dt for this electron
+        dpi_dt = dv_dri_nuc + dv_dri_ee + dv_dri_epbar + v_hei * pi
 
-        # Total dp/dt for this electron
-        dpi_dt = Fi_nuc + Fi_ee + Fi_ep + Fhi
-
-        # Append results
+        # APPEND results
         dr_electrons_dt.append(dri_dt)
         dp_electrons_dt.append(dpi_dt)
-
-    # Forces on antiproton
+        
+        # ANTIPROTON DERIVATIVES
+        # pbar-e interaction
+        dv_dR_epbar += dv_dri_epbar
     # Antiproton-nucleus: F = +2 r_p/r_p^3
-    Fp_nuc = 2 * rp / np.linalg.norm(rp)**3
+    dv_dR_nuc = - 2 * r_pbar / np.linalg.norm(r_pbar)**3
+    
+    dR_pbar_dt = p_pbar / M_STAR
+    dP_pbar_dt = dv_dR_nuc + dv_dR_epbar
 
-    # Antiproton-electron interactions
-    Fp_e = np.zeros(3)
-    for ri in r_electrons:
-        rip = ri - rp
-        norm_ip = np.linalg.norm(rip)
-        Fp_e += rip / norm_ip**3
-
-    dpp_dt = Fp_nuc + Fp_e
-
-    # Combine derivatives
+    # FINAL DERIVATIVES
     derivatives = []
     for dr, dp in zip(dr_electrons_dt, dp_electrons_dt):
         derivatives.extend(dr)
         derivatives.extend(dp)
-    derivatives.extend(dr_pbar_dt)
-    derivatives.extend(dpp_dt)
+    derivatives.extend(dR_pbar_dt)
+    derivatives.extend(dP_pbar_dt)
 
     return np.array(derivatives)
 
@@ -151,14 +141,13 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # PARAMETERS (a.u.)
 # initial antiproton energies (a.u.)
-# ENERGIES = [3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
-ENERGIES = [1.0, 0.5]
-N_TRAJ = 2          # trajectories per energy
+ENERGIES = [3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
+N_TRAJ = 10000       # trajectories per energy
 T_MAX = 25000.0     # max time (a.u.)
 THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
-XPBAR = 10.0      # initial distance of antiproton (a.u.)
+XPBAR = 2.0      # initial distance of antiproton (a.u.)
 # (far away from nucleus)
 
 # Physical constants
@@ -225,8 +214,8 @@ traj_saved = False
 # DYNAMIC SIMULATION
 for E0 in ENERGIES:
     # Initialize counters
-    n_single = 0
     n_double = 0
+    n_single = 0
 
     # Determine b_max based on initial energy
     if E0 > THRESH_1:
@@ -252,8 +241,8 @@ for E0 in ENERGIES:
         # coordinates per particle: re1(3), re2(3), ..., rpbar(3),
         # momenta per particle: pe1(3), pe2(3), ..., ppbar(3)
         y0 = np.concatenate(
-            [np.column_stack((rx, ry, rz)).flatten(), r0_pbar,
-             np.column_stack((px, py, pz)).flatten(), p0_pbar]
+            [np.column_stack((rx, ry, rz)).flatten(),
+             np.column_stack((px, py, pz)).flatten(), r0_pbar, p0_pbar]
             )
 
         # INTEGRATION
@@ -265,17 +254,16 @@ for E0 in ENERGIES:
 
         # SOLUTION
         yf = sol.y[:, -1]
-        print("Final state vector:", yf)
 
         # Extract initial position and momentum of electrons
         rf_e = yf[:3 * e_num]
-        pf_e = yf[3 * (e_num + 1):-3]
+        pf_e = yf[3 * e_num:-6]
         # Ensure the vectors are 1D
         rf_e = np.array(rf_e).flatten()
         pf_e = np.array(pf_e).flatten()
 
         # Extract final position and momentum of the antiproton
-        rf_pbar = yf[3 * e_num:3 * (e_num + 1)]
+        rf_pbar = yf[-6:-3]
         pf_pbar = yf[-3:]
         # Ensure the vectors are 1D
         rf_pbar = np.array(rf_pbar).flatten()
@@ -367,20 +355,18 @@ for E0 in ENERGIES:
         # Classify capture
         if bound_p and any(bound_electrons):
             cap_type = 'pbar_electrons_' + str(len(bound_electrons))
-            n_double += 1
-        elif bound_p:
-            cap_type = 'single'
             n_single += 1
-        elif any(bound_electrons):
-            cap_type = 'electrons_' + str(len(bound_electrons))
+        elif bound_p:
+            cap_type = 'double'
+            n_double += 1
         else:
             cap_type = 'none'
         
-        # # Track the trajectory of the first capture
-        # For the sake of study, we are saving the very first trajectory
-        if (cap_type != ('double' or 'single')) and (not traj_saved):
+        # Track the trajectory of the first capture
+        # # For the sake of study, we are saving the very first trajectory
+        if ((cap_type != 'none') and (not traj_saved)):
             times = sol.t
-            r_p = np.linalg.norm(sol.y[3 * e_num:3 * e_num + 3, :], axis=0)
+            r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
             df_traj = pd.DataFrame({'time': times, 'r_p': r_p})
             df_traj.to_csv('trajectory_example.csv', index=False)
             traj_saved = True
@@ -390,7 +376,7 @@ for E0 in ENERGIES:
         final_states.append((Ef_pbar, E_electrons, Lf_pbar, cap_type))
 
     # COMPUTE CROSS SECTIONS
-    sigma_tot = np.pi * bmax**2 * (n_single + n_double) / N_TRAJ
+    sigma_tot = np.pi * bmax**2 * (n_double + n_single) / N_TRAJ
     sigma_sng = np.pi * bmax**2 * n_single / N_TRAJ
     sigma_dbl = np.pi * bmax**2 * n_double / N_TRAJ
     cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
