@@ -141,14 +141,18 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # PARAMETERS (a.u.)
 # initial antiproton energies (a.u.)
-ENERGIES = [3.0, 2.5, 2.0, 1.5, 1.0, 0.5]
-N_TRAJ = 10000       # trajectories per energy
+MIN_E = 0.1
+MAX_E = 3.0
+N_STEP = 16
+ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # initial energies (a.u.)
+N_TRAJ = 3000       # trajectories per energy
 T_MAX = 25000.0     # max time (a.u.)
-THRESH_1 = 2.3      # energy threshold for stepping b_max
-THRESH_2 = 1.2
-B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
-XPBAR = 2.0      # initial distance of antiproton (a.u.)
-# (far away from nucleus)
+# THRESH_1 = 2.3      # energy threshold for stepping b_max
+# THRESH_2 = 1.2
+# B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
+BMAX = 3.0      # impact parameter (a.u.)
+XPBAR = 5.0     # initial distance of antiproton (a.u.)
+# (away from nucleus)
 
 # Physical constants
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
@@ -201,10 +205,6 @@ print(f"Initial norm momentum of electrons: {p0}")
 print(f"Initial theta angles of momenta: {theta_p}")
 print(f"Initial phi angles of momenta: {phi_p}")
 
-# Convert to Cartesian coordinates
-rx, ry, rz, px, py, pz = convert_to_cartesian(
-    r0, theta_r, phi_r, p0, theta_p, phi_p)
-
 # STORAGE PARAMETERS
 cross_data = []
 initial_states = []
@@ -217,18 +217,28 @@ for E0 in ENERGIES:
     n_double = 0
     n_single = 0
 
-    # Determine b_max based on initial energy
-    if E0 > THRESH_1:
-        bmax = B1
-    elif E0 > THRESH_2:
-        bmax = B2
-    else:
-        bmax = B3
+    # # Determine b_max based on initial energy
+    # if E0 > THRESH_1:
+    #     BMAX = B1
+    # elif E0 > THRESH_2:
+    #     BMAX = B2
+    # else:
+    #     BMAX = B3
 
     for i in tqdm(range(N_TRAJ), desc=f"Processing trajectories for E0={E0}"):
+        # ATOM RANDOM ORIENTATION
+        # Randomize the angles
+        theta_rnd = np.pi * np.random.random()
+        phi_rnd = 2 * np.pi * np.random.random()
+        # Convert to Cartesian coordinates
+        rx, ry, rz, px, py, pz = convert_to_cartesian(
+            r0, theta_r + theta_rnd, phi_r + phi_rnd,
+            p0, theta_p + theta_rnd, phi_p + phi_rnd)
+        
         # ANTIPROTON INITIALIZATION
         # Random impact parameter uniform in area
-        b = np.sqrt(np.random.random() * bmax / np.pi)
+        # b = np.sqrt(np.random.random() * BMAX / np.pi)
+        b = np.sqrt(np.random.random()) * BMAX
         angle = 2 * np.pi * np.random.random()
         # Launch antiproton far away along +x with offset in y
         r0_pbar = np.array([-XPBAR, b * np.cos(angle), b * np.sin(angle)])
@@ -376,9 +386,9 @@ for E0 in ENERGIES:
         final_states.append((Ef_pbar, E_electrons, Lf_pbar, cap_type))
 
     # COMPUTE CROSS SECTIONS
-    sigma_tot = np.pi * bmax**2 * (n_double + n_single) / N_TRAJ
-    sigma_sng = np.pi * bmax**2 * n_single / N_TRAJ
-    sigma_dbl = np.pi * bmax**2 * n_double / N_TRAJ
+    sigma_tot = np.pi * BMAX**2 * (n_double + n_single) / N_TRAJ
+    sigma_sng = np.pi * BMAX**2 * n_single / N_TRAJ
+    sigma_dbl = np.pi * BMAX**2 * n_double / N_TRAJ
     cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
 
 # SAVE CSVs except trajectories which is just for the first capture
