@@ -21,8 +21,9 @@ Dependencies:
 import sys
 import os
 import numpy as np
-import pandas as pd
+import csv
 from scipy.integrate import solve_ivp
+
 
 
 # %% FUNCTIONS
@@ -390,17 +391,23 @@ for i in range(N_TRAJ):
             r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
             electron_radial_distances[f'r_e{i+1}'] = r_e_modulus
 
-        # Combine all trajectory data into a single DataFrame
-        trajectory_data = {
-            'time': times,
-            'r_p': r_p,
-        }
-        trajectory_data.update(electron_radial_distances)
-        df_traj = pd.DataFrame(trajectory_data)
+        # Combine all trajectory data into a single dictionary
+        trajectory_data = []
+        for idx, t in enumerate(times):
+            row = {'time': t, 'r_p': r_p[idx]}
+            for key, value in electron_radial_distances.items():
+                row[key] = value[idx]
+            trajectory_data.append(row)
 
         # Save the trajectory data to a CSV file
         trajectory_file = os.path.join(directory, 'trajectory_example.csv')
-        df_traj.to_csv(trajectory_file, index=False)
+        with open(trajectory_file, mode='w', newline='') as file:
+            fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+            writer.writeheader()
+            writer.writerows(trajectory_data)
+
         traj_saved = True
 
     initial_states.append((E0, L_init, cap_type))
@@ -412,24 +419,28 @@ sigma_sng = np.pi * BMAX**2 * n_single / N_TRAJ
 sigma_dbl = np.pi * BMAX**2 * n_double / N_TRAJ
 cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
 
-# Combine all data into a single dictionary
-combined_data = {
-    'Energy': [row[0] for row in cross_data],
-    'Sigma_total': [row[1] for row in cross_data],
-    'Sigma_single': [row[2] for row in cross_data],
-    'Sigma_double': [row[3] for row in cross_data],
-    'E_initial': [row[0] for row in initial_states],
-    'L_initial': [row[1] for row in initial_states],
-    'Type_initial': [row[2] for row in initial_states],
-    'E_final': [row[0] for row in final_states],
-    'E_electrons': [row[1] for row in final_states],
-    'L_final': [row[2] for row in final_states],
-    'Type_final': [row[3] for row in final_states],
-}
+# Save the combined data to a single CSV file
+output_file = os.path.join(directory, f'ini_e_{E0}.csv')
+with open(output_file, mode='w', newline='') as file:
+    fieldnames = [
+        'Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double',
+        'E_initial', 'L_initial', 'Type_initial',
+        'E_final', 'E_electrons', 'L_final', 'Type_final'
+    ]
+    writer = csv.DictWriter(file, fieldnames=fieldnames)
 
-# Convert the combined data into a DataFrame
-combined_df = pd.DataFrame(combined_data)
-
-# Save the combined data to a single CSV file in the specified directory
-output_file = os.path.join(directory, 'ini_e_{E0}.csv')
-combined_df.to_csv(output_file, index=False)
+    writer.writeheader()
+    for i in range(len(cross_data)):
+        writer.writerow({
+            'Energy': cross_data[i][0],
+            'Sigma_total': cross_data[i][1],
+            'Sigma_single': cross_data[i][2],
+            'Sigma_double': cross_data[i][3],
+            'E_initial': initial_states[i][0],
+            'L_initial': initial_states[i][1],
+            'Type_initial': initial_states[i][2],
+            'E_final': final_states[i][0],
+            'E_electrons': final_states[i][1],
+            'L_final': final_states[i][2],
+            'Type_final': final_states[i][3],
+        })
