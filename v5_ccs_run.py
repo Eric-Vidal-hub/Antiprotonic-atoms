@@ -181,20 +181,24 @@ XI_P = 2.767    # Tuning parameter for the Pauli potential
 XI_H /= np.sqrt(1 + 1 / (2 * ALPHA))
 XI_P /= np.sqrt(1 + 1 / (2 * ALPHA))
 
-# INITIALIZATION
-DIRECTORY = 'HPC_results_gs_with_alpha_modifying/'
+# Define the directory and file name
+DIRECTORY = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
 FILE_NAME = '02_He_02e.csv'
-helium_df = pd.read_csv(DIRECTORY + FILE_NAME)
+
+# Read the CSV file using the csv module
+helium_data = []
+with open(DIRECTORY + FILE_NAME, mode='r') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        helium_data.append(row)
 
 # Ensure the expected columns exist
 required_col = ['p_num', 'e_num', 'optimal_configuration']
-if not all(col in helium_df.columns for col in required_col):
+if not all(col in helium_data[0] for col in required_col):
     raise KeyError(f"Missing required columns in the CSV file: {required_col}")
 
-# Expected config: r0_1, r0_i, theta_r_1, theta_r_i, phi_r_1, phi_r_i, p0_1,
-# p0_i, theta_p_1, theta_p_i, phi_p_1, phi_p_i
-# Convert to numpy arrays
-for _, row in helium_df.iterrows():
+# Process the data
+for row in helium_data:
     p_num = int(row['p_num'])
     e_num = int(row['e_num'])
     optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'),
@@ -208,7 +212,7 @@ for _, row in helium_df.iterrows():
 
 # Atomic number Z, number of protons
 ZZ = p_num
-M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.),
+M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
 
 # STORAGE PARAMETERS
 cross_data = []
@@ -401,7 +405,7 @@ for i in range(N_TRAJ):
 
         # Save the trajectory data to a CSV file
         trajectory_file = os.path.join(directory, 'trajectory_example.csv')
-        with open(trajectory_file, mode='w', newline='') as file:
+        with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
             fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
 
@@ -421,7 +425,7 @@ cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
 
 # Save the combined data to a single CSV file
 output_file = os.path.join(directory, f'ini_e_{E0}.csv')
-with open(output_file, mode='w', newline='') as file:
+with open(output_file, mode='w', newline='', encoding='utf-8') as file:
     fieldnames = [
         'Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double',
         'E_initial', 'L_initial', 'Type_initial',
@@ -430,17 +434,17 @@ with open(output_file, mode='w', newline='') as file:
     writer = csv.DictWriter(file, fieldnames=fieldnames)
 
     writer.writeheader()
-    for i in range(len(cross_data)):
+    for i, (cross, initial, final) in enumerate(zip(cross_data, initial_states, final_states)):
         writer.writerow({
-            'Energy': cross_data[i][0],
-            'Sigma_total': cross_data[i][1],
-            'Sigma_single': cross_data[i][2],
-            'Sigma_double': cross_data[i][3],
-            'E_initial': initial_states[i][0],
-            'L_initial': initial_states[i][1],
-            'Type_initial': initial_states[i][2],
-            'E_final': final_states[i][0],
-            'E_electrons': final_states[i][1],
-            'L_final': final_states[i][2],
-            'Type_final': final_states[i][3],
+            'Energy': cross[0],
+            'Sigma_total': cross[1],
+            'Sigma_single': cross[2],
+            'Sigma_double': cross[3],
+            'E_initial': initial[0],
+            'L_initial': initial[1],
+            'Type_initial': initial[2],
+            'E_final': final[0],
+            'E_electrons': final[1],
+            'L_final': final[2],
+            'Type_final': final[3],
         })
