@@ -19,10 +19,12 @@ Dependencies:
     numpy, pandas, scipy
 """
 import numpy as np
-import pandas as pd
+import csv
 from scipy.integrate import solve_ivp
+from FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
+                           N_TRAJ, T_MAX, BMAX, XPBAR, DIRECTORY_PBAR,
+                           DIRECTORY_ATOM)
 from tqdm import tqdm  # Import tqdm for the progress bar
-
 
 # %% FUNCTIONS
 def compute_forces(t, state):
@@ -71,7 +73,6 @@ def compute_forces(t, state):
             else:
                 exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
             v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3)
-
         # Time derivative of r_i: dr_i/dt = dH/dp_i
         dri_dt = pi - v_hei * ri  # Check signs if m_e is not 1
         dr_dt_electrons_flat[3*ii:3*(ii+1)] = dri_dt
@@ -171,48 +172,22 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # %% SIMULATION
 # LOADING THE GS ATOM
-# PARAMETERS (a.u.)
-# initial antiproton energies (a.u.)
-MIN_E = 0.5
-MAX_E = 3.0
-N_STEP = 5
-ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # initial energies (a.u.)
-N_TRAJ = 5       # trajectories per energy
-T_MAX = 25000.0     # max time (a.u.)
-# THRESH_1 = 2.3      # energy threshold for stepping b_max
-# THRESH_2 = 1.2
-# B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
-BMAX = 3.0      # impact parameter (a.u.)
-XPBAR = 2.0     # initial distance of antiproton (a.u.)
-# (away from nucleus)
-
-# Physical constants
-M_PBAR = 1836.152672  # antiproton mass (a.u.)
-
-# FMD parameters
-ALPHA = 5       # Hardness parameter
-XI_H = 1.000    # Tuning parameter for the Heisenberg potential
-XI_P = 2.767    # Tuning parameter for the Pauli potential
-# Scaling parameters according to alpha
-XI_H /= np.sqrt(1 + 1 / (2 * ALPHA))
-XI_P /= np.sqrt(1 + 1 / (2 * ALPHA))
-
-print(f"XI_H: {XI_H}, XI_P: {XI_P}")
-
-# INITIALIZATION
-DIRECTORY = 'HPC_results_gs_with_alpha_modifying/'
-FILE_NAME = '02_He_02e.csv'
-helium_df = pd.read_csv(DIRECTORY + FILE_NAME)
+# Read the CSV file using the csv module
+helium_data = []
+with open(DIRECTORY_ATOM, mode='r') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        helium_data.append(row)
 
 # Ensure the expected columns exist
 required_col = ['p_num', 'e_num', 'optimal_configuration']
-if not all(col in helium_df.columns for col in required_col):
+if not all(col in helium_data[0] for col in required_col):
     raise KeyError(f"Missing required columns in the CSV file: {required_col}")
 
 # Expected config: r0_1, r0_i, theta_r_1, theta_r_i, phi_r_1, phi_r_i, p0_1,
 # p0_i, theta_p_1, theta_p_i, phi_p_1, phi_p_i
 # Convert to numpy arrays
-for _, row in helium_df.iterrows():
+for row in helium_data:
     p_num = int(row['p_num'])
     e_num = int(row['e_num'])
     optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'),
@@ -226,29 +201,20 @@ for _, row in helium_df.iterrows():
 
 # Atomic number Z, number of protons
 ZZ = p_num
-M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.),
-# assuming same number of protons and neutrons
-print(f"Loaded {ZZ} static nuclear protons from the CSV file.")
-print(f"Atom reduced mass (a.u.): {M_STAR}")
-print(f"Loaded {e_num} electrons with initial positions and momenta:")
-# Initial positions and momenta of electrons
-print(f"Initial norm position of electrons: {r0}")
-print(f"Initial theta angles of electrons: {theta_r}")
-print(f"Initial phi angles of electrons: {phi_r}")
-print(f"Initial norm momentum of electrons: {p0}")
-print(f"Initial theta angles of momenta: {theta_p}")
-print(f"Initial phi angles of momenta: {phi_p}")
+M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
+
 # STORAGE PARAMETERS
-cross_data = []
-initial_states = []
-final_states = []
-traj_saved = False
+CROSS_DATA = []
+INI_STATES = []
+FINAL_STATES = []
+TRAJ_SAVED = False
 
 # DYNAMIC SIMULATION
+ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # Initial energies (a.u.)
 for E0 in ENERGIES:
     # Initialize counters
-    n_double = 0
-    n_single = 0
+    N_DOUBLE = 0
+    N_SINGLE = 0
 
     # # Determine b_max based on initial energy
     # if E0 > THRESH_1:
@@ -267,7 +233,7 @@ for E0 in ENERGIES:
         rx, ry, rz, px, py, pz = convert_to_cartesian(
             r0, theta_r + theta_rnd, phi_r + phi_rnd,
             p0, theta_p + theta_rnd, phi_p + phi_rnd)
-        
+
         # ANTIPROTON INITIALIZATION
         # Random impact parameter uniform in area
         # b = np.sqrt(np.random.random() * BMAX / np.pi)
@@ -393,50 +359,78 @@ for E0 in ENERGIES:
             # CAPTURE CLASSIFICATION
             bound_electrons.append(Ef_ei < 0)
 
-        bound_p = (Ef_pbar < 0)     # Antiproton bound if Ef < 0
+        bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
 
         # Classify capture
-        if bound_p and any(bound_electrons):
-            cap_type = 'pbar_electrons_' + str(len(bound_electrons))
-            n_single += 1
-        elif bound_p:
-            cap_type = 'double'
-            n_double += 1
+        if bound_p:
+            if any(bound_electrons):
+                CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
+                N_SINGLE += 1
+            else:
+                CAP_TYPE = 'double'
+                N_DOUBLE += 1
         else:
-            cap_type = 'none'
-        
-        # # Track the trajectory of the first capture
-        # # # For the sake of study, we are saving the very first capture trajectory
-        # if ((cap_type != 'none') and (not traj_saved)):
-        #     times = sol.t
-        #     r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
-        #     df_traj = pd.DataFrame({'time': times, 'r_p': r_p})
-        #     df_traj.to_csv('trajectory_example.csv', index=False)
-        #     traj_saved = True
-        #     print(" - trajectory_example.csv")
+            CAP_TYPE = 'none'
 
-        initial_states.append((E0, L_init, cap_type))
-        final_states.append((Ef_pbar, E_electrons, Lf_pbar, cap_type))
+        # Save the first capture trajectory
+        if ((CAP_TYPE != 'none') and (not TRAJ_SAVED)):
+            times = sol.t
 
-    # COMPUTE CROSS SECTIONS
-    sigma_tot = np.pi * BMAX**2 * (n_double + n_single) / N_TRAJ
-    sigma_sng = np.pi * BMAX**2 * n_single / N_TRAJ
-    sigma_dbl = np.pi * BMAX**2 * n_double / N_TRAJ
-    cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
+            # Extract radial distance of the antiproton
+            r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
 
-# SAVE CSVs except trajectories which is just for the first capture
-pd.DataFrame(cross_data, columns=['Energy', 'Sigma_total', 'Sigma_single',
-                                  'Sigma_double']) \
-  .to_csv('cross_sections.csv', index=False)
-pd.DataFrame(initial_states, columns=['E_initial', 'L_initial', 'type']) \
-  .to_csv('initial_states.csv', index=False)
-pd.DataFrame(final_states, columns=['E_final', 'E_electrons', 'L_final',
-                                    'type']).to_csv('final_states.csv',
-                                                    index=False)
+            # Extract radial distances of the electrons
+            electron_radial_distances = {}
+            for ii in range(e_num):
+                r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th e-
+                r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
+                electron_radial_distances[f'r_e{ii+1}'] = r_e_modulus
 
-print("Simulation completed. CSV files written:")
-print(" - cross_sections.csv")
-print(" - initial_states.csv")
-print(" - final_states.csv")
-print("Note: trajectory_example.csv is only saved for the first capture.")
-print("If you want to save all trajectories, please modify the code.")
+            # Combine all trajectory data into a single dictionary
+            trajectory_data = [
+                {'time': t, 'r_p': r_p[idx], **{key: value[idx] for key, value in electron_radial_distances.items()}}
+                for idx, t in enumerate(times)
+            ]
+
+            # Save the trajectory data to a CSV file
+            trajectory_file = DIRECTORY_PBAR + f'trajectory_example_{ii}_E0_{E0}.csv'
+            with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
+                fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+                writer.writeheader()
+                writer.writerows(trajectory_data)
+
+            TRAJ_SAVED = True
+
+        INI_STATES.append((E0, L_init, CAP_TYPE))
+        FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
+
+    # Append cross-section data for the current energy
+    CROSS_DATA.append([
+        E0,
+        np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,
+        np.pi * BMAX**2 * N_SINGLE / N_TRAJ,
+        np.pi * BMAX**2 * N_DOUBLE / N_TRAJ
+    ])
+
+# Save cross sections to CSV
+with open(DIRECTORY_PBAR + f'cross_sections_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
+    writer.writerows(CROSS_DATA)
+
+with open(DIRECTORY_PBAR + f'initial_states_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['E_initial', 'L_initial', 'type'])
+    writer.writerows(INI_STATES)
+
+with open(DIRECTORY_PBAR + f'final_states_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
+    for row in FINAL_STATES:
+        # Convert E_electrons (list) to a string for CSV compatibility
+        writer.writerow([row[0], str(row[1]), row[2], row[3]])

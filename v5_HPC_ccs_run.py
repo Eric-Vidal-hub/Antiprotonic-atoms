@@ -23,8 +23,8 @@ import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
-from FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
-                       N_TRAJ, T_MAX, BMAX, XPBAR)
+from HPC_FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
+                           N_TRAJ, T_MAX, BMAX, XPBAR)
 
 
 # %% FUNCTIONS
@@ -188,7 +188,7 @@ else:
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
+DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_previous_z_as_ic/'
 FILE_NAME = '02_He_02e.csv'
 
 # Read the CSV file using the csv module
