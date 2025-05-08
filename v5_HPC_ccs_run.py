@@ -438,7 +438,7 @@ for ii in range(N_TRAJ):
 
         # Save the trajectory data to a CSV file
         trajectory_file = os.path.join(DIRECTORY_PBAR,
-                                       'trajectory_example_{ii}_E0_{E0}.csv')
+                                       f'trajectory_example_{ii}_E0_{E0}.csv')
         with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
             fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
