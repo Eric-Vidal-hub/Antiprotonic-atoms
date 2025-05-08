@@ -25,88 +25,121 @@ import csv
 from scipy.integrate import solve_ivp
 
 
-
 # %% FUNCTIONS
-def compute_forces(_, state):
+def compute_forces(t, state):
     """
     Generalized force computation for an arbitrary number of electrons.
     Given state vector y = [r1(3), r2(3), ...,
                             p1(3), p2(3), ..., r_pbar(3), p_pbar(3)].
     It returns derivatives dy/dt according to Hamilton's equations.
     """
-    # Unpack state vector
+    # Unpack state vector into shaped arrays for easier handling
     num_electrons = (len(state) - 6) // 6  # Calculate the number of electrons
-    # -6 for the antiproton position and momentum
-    r_electrons = [state[3 * i:3 * (i + 1)] for i in range(num_electrons)]
-    p_electrons = [state[3 * (num_electrons + i):3
-                         * (num_electrons + i
-                            + 1)] for i in range(num_electrons)]
+    r_e_flat = state[:3 * num_electrons]
+    p_e_flat = state[3 * num_electrons : 6 * num_electrons]
     r_pbar = state[-6:-3]
     p_pbar = state[-3:]
 
-    # Initialize derivatives
-    dr_electrons_dt = []
-    dp_electrons_dt = []
+    r_electrons = r_e_flat.reshape((num_electrons, 3))
+    p_electrons = p_e_flat.reshape((num_electrons, 3))
 
-    # Cumulative term
-    dv_dR_epbar = np.zeros(3)
+    dr_dt_electrons_flat = np.zeros(3 * num_electrons)
+    dp_dt_electrons_flat = np.zeros(3 * num_electrons)
 
-    # COMPUTE t-der for r&p according to Hamiltonian eqs for each electron
+    # Small constant to prevent division by zero or extremely small norms
+    epsilon = 1e-18 
+
+    # --- Forces and derivatives for Electrons ---
     for ii in range(num_electrons):
         ri = r_electrons[ii]
         pi = p_electrons[ii]
         ri_norm = np.linalg.norm(ri)
         pi_norm = np.linalg.norm(pi)
 
-        # Heisenberg core factors
-        exp_hei = np.exp(ALPHA * (1 - (ri_norm * pi_norm / XI_H)**4))
-        v_hei = ri_norm * pi_norm**3 * exp_hei / XI_H**3
+        # Heisenberg core contribution (ensure this part is numerically stable)
+        v_hei = 0.0
+        # Guard against issues if ri_norm or pi_norm is zero, or XI_H is zero
+        if ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon:
+            # The exponent term can become very large negatively or positively.
+            # np.exp can overflow or underflow.
+            hei_arg_exp = (ri_norm * pi_norm / XI_H)**4
+            # Cap the argument to prevent overflow if needed, though for large positive hei_arg_exp,
+            # (1 - hei_arg_exp) becomes large negative, leading to exp_hei -> 0.
+            # If hei_arg_exp is very small, (1 - hei_arg_exp) ~ 1, exp_hei ~ exp(ALPHA)
+            if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -700: # exp(-700) is ~0
+                exp_hei = 0.0
+            elif ALPHA * (1-hei_arg_exp) > 700: # exp(700) overflows
+                exp_hei = np.exp(700) # Cap to a very large number
+            else:
+                exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
+            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3) # Removed epsilon from XI_H**3, assuming XI_H is well-defined
 
-        # T-DER r_i = (dV/dpi) = pi + (dV/dpi)_hei
-        dri_dt = pi - v_hei * ri
+        # Time derivative of r_i: dr_i/dt = dH/dp_i
+        # Assuming H contains p_i^2/2m and the Heisenberg term contributes -v_hei * r_i to dH/dp_i
+        dri_dt = pi - v_hei * ri  # Check signs if m_e is not 1
+        dr_dt_electrons_flat[3 * ii : 3*(ii+1)] = dri_dt
 
-        # T-DER p_i = - (dV/dri) = (dV/dri)_nuc - (dV/dri)_ee
-        #                         - (dV/dri)_pbar - (dV/dri)_hei
+        # --- Forces for dp_i/dt = -dV/dr_i ---
+        # 1. Electron-nucleus interaction (attractive potential V = -ZZ/||ri||)
+        # Force F_en = -grad(V) = -ZZ * ri / ||ri||^3
+        f_en = -ZZ * ri / (ri_norm**3 + epsilon)
 
-        # e-nuc interaction
-        dv_dri_nuc = - ZZ * ri / ri_norm**3
-
-        # e-e interactions
-        dv_dri_ee = np.zeros(3)
-        for kk in range(num_electrons):
-            if ii != kk:
-                r_ik = ri - r_electrons[kk]
-                dv_dri_ee += np.abs(r_ik) / np.linalg.norm(r_ik)**3
-
-        # e-pbar interaction: F = - |x_i,j - X_pbar,j|/||r_i-r_pbar||^3
+        # 2. Electron-electron interaction (repulsive potential V_ij = 1/||ri-rj||)
+        # Force on i from j: F_ij = -grad_i(V_ij) = (ri - rj) / ||ri - rj||^3
+        f_ee_sum = np.zeros(3)
+        for jj in range(num_electrons):
+            if ii == jj:
+                continue
+            r_ij = ri - r_electrons[jj]
+            norm_r_ij = np.linalg.norm(r_ij)
+            f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+        
+        # 3. Electron-antiproton interaction (attractive potential V_ipbar = -1/||ri-rpbar||)
+        # Force on i from pbar: F_ipbar = -grad_i(V_ipbar) = -(ri - r_pbar) / ||ri - r_pbar||^3
         r_ipbar = ri - r_pbar
-        dv_dri_epbar = np.abs(r_ipbar) / np.linalg.norm(r_ipbar)**3
+        norm_r_ipbar = np.linalg.norm(r_ipbar)
+        f_epbar = -r_ipbar / (norm_r_ipbar**3 + epsilon)
+        
+        # Heisenberg force component on momentum: -dV_H/dr_i
+        # Assuming the Heisenberg term contributes +v_hei * pi to -dV_H/dr_i
+        f_heisenberg_p = v_hei * pi
 
-        # TOTAL dp/dt for this electron
-        dpi_dt = dv_dri_nuc + dv_dri_ee + dv_dri_epbar + v_hei * pi
+        dp_dt_electrons_flat[3*ii : 3*(ii+1)] = f_en + f_ee_sum + f_epbar + f_heisenberg_p
 
-        # APPEND results
-        dr_electrons_dt.append(dri_dt)
-        dp_electrons_dt.append(dpi_dt)
-
-        # ANTIPROTON DERIVATIVES
-        # pbar-e interaction
-        dv_dR_epbar += dv_dri_epbar
-    # Antiproton-nucleus: F = +2 r_p/r_p^3
-    dv_dR_nuc = - 2 * r_pbar / np.linalg.norm(r_pbar)**3
-
+    # --- Forces and derivatives for Antiproton ---
+    # Time derivative of R_pbar: dR_pbar/dt = dH/dP_pbar = P_pbar / M_STAR
     dR_pbar_dt = p_pbar / M_STAR
-    dP_pbar_dt = dv_dR_nuc + dv_dR_epbar
 
-    # FINAL DERIVATIVES
-    derivatives = []
-    for dr, dp in zip(dr_electrons_dt, dp_electrons_dt):
-        derivatives.extend(dr)
-        derivatives.extend(dp)
-    derivatives.extend(dR_pbar_dt)
-    derivatives.extend(dP_pbar_dt)
+    # Forces for dP_pbar/dt = -dV/dR_pbar
+    # 1. Antiproton-nucleus interaction (attractive V = -ZZ/||R_pbar||)
+    # Force F_pbar_nuc = -grad(V) = -ZZ * r_pbar / ||R_pbar||^3
+    norm_r_pbar = np.linalg.norm(r_pbar)
+    f_pbar_nuc = -ZZ * r_pbar / (norm_r_pbar**3 + epsilon)
 
-    return np.array(derivatives)
+    # 2. Antiproton-electron interaction (attractive V_pbar_e = sum_i -1/||R_pbar-ri||)
+    # Force on pbar from electron i: F_pbar_ei = -grad_Rpbar(V_pbar_ei)
+    # F_pbar_ei = -(r_pbar - ri) / ||R_pbar - ri||^3 = (ri - r_pbar) / ||ri - r_pbar||^3
+    f_pbar_e_sum = np.zeros(3)
+    for ii in range(num_electrons):
+        # r_ipbar was ri - r_pbar. So (r_electrons[i] - r_pbar) is correct here.
+        # norm_r_ipbar was norm(ri - r_pbar)
+        # Need to recalculate for each electron interaction if not already available
+        vec_ei_to_pbar = r_pbar - r_electrons[ii] # Vector from electron i to antiproton
+        norm_vec_ei_to_pbar = np.linalg.norm(vec_ei_to_pbar)
+        # Force on antiproton from electron i is attractive, pointing towards electron i.
+        f_pbar_e_sum += -vec_ei_to_pbar / (norm_vec_ei_to_pbar**3 + epsilon) # Force on pbar is towards electron
+
+    dP_pbar_dt = f_pbar_nuc + f_pbar_e_sum
+
+    # Assemble the full derivative vector in the correct order
+    derivatives = np.concatenate([
+        dr_dt_electrons_flat,
+        dp_dt_electrons_flat,
+        dR_pbar_dt,
+        dP_pbar_dt
+    ])
+
+    return derivatives
 
 
 def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
