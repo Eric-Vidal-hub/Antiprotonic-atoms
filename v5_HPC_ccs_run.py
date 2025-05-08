@@ -189,7 +189,7 @@ else:
 # LOADING THE GS ATOM
 # Read the CSV file using the csv module
 helium_data = []
-with open(DIRECTORY_ATOM + FILE_NAME, mode='r') as file:
+with open(DIRECTORY_ATOM, mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
         helium_data.append(row)
