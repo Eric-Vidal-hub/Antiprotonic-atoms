@@ -14,6 +14,6 @@ cd ~/Antiprotonic-atoms/
 
 for ((z=0;z<=15;z++))
 do
-        python v5_ccs_run.py /scratch/vym17xaj/HPC_dynamics 0 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*2)+$z") &
+        python v5_HPC_ccs_run.py /scratch/vym17xaj/HPC_dynamics 0 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*2)+$z") &
 done
 wait
