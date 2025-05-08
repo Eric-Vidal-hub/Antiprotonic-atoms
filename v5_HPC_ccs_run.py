@@ -450,3 +450,6 @@ with open(DIRECTORY_PBAR + f'final_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', new
     for row in FINAL_STATES:
         # Convert E_electrons (list) to a string for CSV compatibility
         writer.writerow([row[0], str(row[1]), row[2], row[3]])
+
+print(f"Simulation completed for E0 = {E0} a.u. with ID {ID}.")
+print(f"Results saved in {DIRECTORY_PBAR}.")
