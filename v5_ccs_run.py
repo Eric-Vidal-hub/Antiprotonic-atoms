@@ -141,10 +141,10 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # %% SIMULATION
 # DIRECTORY TO SAVE THE RESULTS
-directory = sys.argv[1]
-id = int(sys.argv[2])
+DIRECTORY_PBAR = sys.argv[1]
+ID = int(sys.argv[2])
 
-path = directory
+path = DIRECTORY_PBAR
 if not os.path.exists(path):
     print('Directory not found.')
     print('Create Directory...')
@@ -167,7 +167,7 @@ T_MAX = 25000.0     # max time (a.u.)
 # THRESH_2 = 1.2
 # B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 BMAX = 3.0      # impact parameter (a.u.)
-XPBAR = 5.0     # initial distance of antiproton (a.u.)
+XPBAR = 50.0     # initial distance of antiproton (a.u.)
 # (away from nucleus)
 
 # Physical constants
@@ -182,12 +182,12 @@ XI_H /= np.sqrt(1 + 1 / (2 * ALPHA))
 XI_P /= np.sqrt(1 + 1 / (2 * ALPHA))
 
 # Define the directory and file name
-DIRECTORY = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
+DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
 FILE_NAME = '02_He_02e.csv'
 
 # Read the CSV file using the csv module
 helium_data = []
-with open(DIRECTORY + FILE_NAME, mode='r') as file:
+with open(DIRECTORY_ATOM + FILE_NAME, mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
         helium_data.append(row)
@@ -221,7 +221,7 @@ final_states = []
 traj_saved = False
 
 # DYNAMIC SIMULATION
-E0 = ENERGIES[id]
+E0 = ENERGIES[ID]
 # Initialize counters
 n_double = 0
 n_single = 0
@@ -234,7 +234,7 @@ n_single = 0
 # else:
 #     BMAX = B3
 
-for i in range(N_TRAJ):
+for ii in range(N_TRAJ):
     # ATOM RANDOM ORIENTATION
     # Randomize the angles
     theta_rnd = np.pi * np.random.random()
@@ -268,7 +268,7 @@ for i in range(N_TRAJ):
     sol = solve_ivp(
         compute_forces,
         (0.0, T_MAX), y0,
-        method='DOP853', rtol=1e-6, atol=1e-9
+        method='RK45', rtol=1e-6, atol=1e-9
     )
 
     # SOLUTION
@@ -306,9 +306,9 @@ for i in range(N_TRAJ):
     pair_pot = 0.0  # Coulomb potential between electrons
     # pauli_pot = 0.0  # Pauli exclusion constraint potential
     if e_num > 1:
-        for i in range(e_num):
+        for ii in range(e_num):
             # Electron position and momentum
-            rf_ei = rf_e[3 * i:3 * (i + 1)]
+            rf_ei = rf_e[3 * ii:3 * (ii + 1)]
             delta_r = np.linalg.norm(rf_pbar - rf_ei)
             # Coulomb potential for electron pairs
             pair_pot += 1.0 / delta_r
@@ -328,10 +328,10 @@ for i in range(N_TRAJ):
     # COMPUTE ELECTRONS FINAL ENERGY
     bound_electrons = []
     E_electrons = []
-    for i in range(e_num):
+    for ii in range(e_num):
         # Final position and momentum of the i-th electron
-        rf_ei = rf_e[3 * i:3 * (i + 1)]
-        pf_ei = pf_e[3 * i:3 * (i + 1)]
+        rf_ei = rf_e[3 * ii:3 * (ii + 1)]
+        pf_ei = pf_e[3 * ii:3 * (ii + 1)]
 
         # Final energy of the i-th electron
         norm_rf_ei = np.linalg.norm(rf_ei)
@@ -348,7 +348,7 @@ for i in range(N_TRAJ):
         # pauli_pot = 0.0  # Pauli exclusion constraint potential
         if e_num > 1:
             for j in range(e_num):
-                if i != j:
+                if ii != j:
                     rf_ej = rf_e[3 * j:3 * (j + 1)]
                     delta_r = np.linalg.norm(rf_ei - rf_ej)
                     pair_pot += 1.0 / delta_r
@@ -390,10 +390,10 @@ for i in range(N_TRAJ):
 
         # Extract radial distances of the electrons
         electron_radial_distances = {}
-        for i in range(e_num):
-            r_e = sol.y[3 * i:3 * (i + 1), :]  # Positions of the i-th electron
+        for ii in range(e_num):
+            r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th electron
             r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
-            electron_radial_distances[f'r_e{i+1}'] = r_e_modulus
+            electron_radial_distances[f'r_e{ii+1}'] = r_e_modulus
 
         # Combine all trajectory data into a single dictionary
         trajectory_data = []
@@ -404,7 +404,8 @@ for i in range(N_TRAJ):
             trajectory_data.append(row)
 
         # Save the trajectory data to a CSV file
-        trajectory_file = os.path.join(directory, 'trajectory_example.csv')
+        trajectory_file = os.path.join(DIRECTORY_PBAR,
+                                       'trajectory_example_{ii}_E0_{E0}.csv')
         with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
             fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -424,7 +425,7 @@ sigma_dbl = np.pi * BMAX**2 * n_double / N_TRAJ
 cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
 
 # Save the combined data to a single CSV file
-output_file = os.path.join(directory, f'ini_e_{E0}.csv')
+output_file = os.path.join(DIRECTORY_PBAR, f'ini_e_{E0}_R0_{XPBAR}.csv')
 with open(output_file, mode='w', newline='', encoding='utf-8') as file:
     fieldnames = [
         'Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double',
@@ -434,7 +435,7 @@ with open(output_file, mode='w', newline='', encoding='utf-8') as file:
     writer = csv.DictWriter(file, fieldnames=fieldnames)
 
     writer.writeheader()
-    for i, (cross, initial, final) in enumerate(zip(cross_data, initial_states, final_states)):
+    for ii, (cross, initial, final) in enumerate(zip(cross_data, initial_states, final_states)):
         writer.writerow({
             'Energy': cross[0],
             'Sigma_total': cross[1],

@@ -1,47 +1,43 @@
-import pandas as pd
+import csv
 import matplotlib.pyplot as plt
 
-# Load data
-cross_df = pd.read_csv('cross_sections.csv')
-initial_df = pd.read_csv('initial_states.csv')
-final_df = pd.read_csv('final_states.csv')
 
-# Plot 1: Capture cross sections vs. Energy
-plt.figure()
-plt.plot(cross_df['Energy'], cross_df['Sigma_total'], label='Total', marker='o')  # Added marker
-plt.plot(cross_df['Energy'], cross_df['Sigma_single'], label='Single Capture', marker='s')  # Added marker
-plt.plot(cross_df['Energy'], cross_df['Sigma_double'], label='Double Capture', marker='^')  # Added marker
-plt.xlabel('Initial Antiproton Energy (a.u.)')
-plt.ylabel('Capture Cross Section (a.u.)')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+# Filepath to the trajectory file
+file_path = 'HPC_dynamics/trajectory_example.csv'
 
-# Plot 2: Initial States (L_initial vs. E_initial)
-plt.figure()
-# Exclude 'none' type
-filtered_initial_df = initial_df[initial_df['type'] != 'none']
-for capture_type in filtered_initial_df['type'].unique():
-    subset = filtered_initial_df[filtered_initial_df['type'] == capture_type]
-    plt.scatter(subset['L_initial'], subset['E_initial'], label=capture_type, alpha=0.7)  # Swapped axes
-plt.xlabel('Initial Angular Momentum L (a.u.)')  # Updated label
-plt.ylabel('Initial Antiproton Energy (a.u.)')  # Updated label
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+# Initialize data storage
+time = []
+r_p = []
+electron_distances = {}
 
-# Plot 3: Final States (L_final vs. E_final)
+# Read the CSV file
+with open(file_path, mode='r') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        # Store time and antiproton radial distance
+        time.append(float(row['time']))
+        r_p.append(float(row['r_p']))
+
+        # Store electron radial distances
+        for key in row:
+            if key.startswith('r_e'):  # Electron radial distances
+                if key not in electron_distances:
+                    electron_distances[key] = []
+                electron_distances[key].append(float(row[key]))
+
+# Plot the antiproton radial distance
 plt.figure()
-# Exclude 'none' type
-filtered_final_df = final_df[final_df['type'] != 'none']
-for capture_type in filtered_final_df['type'].unique():
-    subset = filtered_final_df[filtered_final_df['type'] == capture_type]
-    plt.scatter(subset['L_final'], subset['E_final'], label=capture_type, alpha=0.7)  # Swapped axes
-plt.xlabel('Final Angular Momentum L (a.u.)')  # Updated label
-plt.ylabel('Final Antiproton Energy (a.u.)')  # Updated label
-plt.legend()
+plt.plot(time, r_p, label='Antiproton', color='blue')
+plt.xlabel('Time (a.u.)')
+plt.ylabel('Radial Distance (a.u.)')
+plt.ylim(0, 90)  # Set y-axis limit to 20 a.u.
 plt.grid(True)
+
+# Plot the electron radial distances
+for key, values in electron_distances.items():
+    plt.plot(time, values, label=key)
+
+# Add legend and show the plot
+plt.legend()
 plt.tight_layout()
 plt.show()
