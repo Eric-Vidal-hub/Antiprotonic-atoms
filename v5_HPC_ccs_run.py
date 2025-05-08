@@ -23,6 +23,8 @@ import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
+from FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
+                       N_TRAJ, T_MAX, BMAX, XPBAR)
 
 
 # %% FUNCTIONS
@@ -36,7 +38,7 @@ def compute_forces(t, state):
     # Unpack state vector into shaped arrays for easier handling
     num_electrons = (len(state) - 6) // 6  # Calculate the number of electrons
     r_e_flat = state[:3 * num_electrons]
-    p_e_flat = state[3 * num_electrons : 6 * num_electrons]
+    p_e_flat = state[3 * num_electrons:6 * num_electrons]
     r_pbar = state[-6:-3]
     p_pbar = state[-3:]
 
@@ -72,7 +74,7 @@ def compute_forces(t, state):
                 exp_hei = np.exp(700) # Cap to a very large number
             else:
                 exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
-            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3) # Removed epsilon from XI_H**3, assuming XI_H is well-defined
+            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3)  # Removed epsilon from XI_H**3, assuming XI_H is well-defined
 
         # Time derivative of r_i: dr_i/dt = dH/dp_i
         # Assuming H contains p_i^2/2m and the Heisenberg term contributes -v_hei * r_i to dH/dp_i
@@ -86,13 +88,10 @@ def compute_forces(t, state):
 
         # 2. Electron-electron interaction (repulsive potential V_ij = 1/||ri-rj||)
         # Force on i from j: F_ij = -grad_i(V_ij) = (ri - rj) / ||ri - rj||^3
-        f_ee_sum = np.zeros(3)
-        for jj in range(num_electrons):
-            if ii == jj:
-                continue
-            r_ij = ri - r_electrons[jj]
-            norm_r_ij = np.linalg.norm(r_ij)
-            f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+        r_diff = r_electrons - ri  # Vector differences
+        norm_r_diff = np.linalg.norm(r_diff, axis=1) + epsilon  # Norms
+        norm_r_diff_cubed = norm_r_diff**3
+        f_ee_sum = np.sum(r_diff / norm_r_diff_cubed[:, None], axis=0)
         
         # 3. Electron-antiproton interaction (attractive potential V_ipbar = -1/||ri-rpbar||)
         # Force on i from pbar: F_ipbar = -grad_i(V_ipbar) = -(ri - r_pbar) / ||ri - r_pbar||^3
@@ -104,7 +103,7 @@ def compute_forces(t, state):
         # Assuming the Heisenberg term contributes +v_hei * pi to -dV_H/dr_i
         f_heisenberg_p = v_hei * pi
 
-        dp_dt_electrons_flat[3*ii : 3*(ii+1)] = f_en + f_ee_sum + f_epbar + f_heisenberg_p
+        dp_dt_electrons_flat[3 * ii : 3*(ii+1)] = f_en + f_ee_sum + f_epbar + f_heisenberg_p
 
     # --- Forces and derivatives for Antiproton ---
     # Time derivative of R_pbar: dR_pbar/dt = dH/dP_pbar = P_pbar / M_STAR
@@ -177,43 +176,17 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 DIRECTORY_PBAR = sys.argv[1]
 ID = int(sys.argv[2])
 
-path = DIRECTORY_PBAR
-if not os.path.exists(path):
+if not os.path.exists(DIRECTORY_PBAR):
     print('Directory not found.')
     print('Create Directory...')
     try:
-        os.mkdir(path)
+        os.mkdir(DIRECTORY_PBAR)
     except FileExistsError:
         print("Directory was already created by a different process!")
 else:
     print('Directory exists!')
 
-# PARAMETERS (a.u.)
-# initial antiproton energies (a.u.)
-MIN_E = 0.1
-MAX_E = 3.0
-N_STEP = 16
-ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # initial energies (a.u.)
-N_TRAJ = 100       # trajectories per energy
-T_MAX = 25000.0     # max time (a.u.)
-# THRESH_1 = 2.3      # energy threshold for stepping b_max
-# THRESH_2 = 1.2
-# B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
-BMAX = 3.0      # impact parameter (a.u.)
-XPBAR = 50.0     # initial distance of antiproton (a.u.)
-# (away from nucleus)
-
-# Physical constants
-M_PBAR = 1836.152672  # antiproton mass (a.u.)
-
-# FMD parameters
-ALPHA = 5       # Hardness parameter
-XI_H = 1.000    # Tuning parameter for the Heisenberg potential
-XI_P = 2.767    # Tuning parameter for the Pauli potential
-# Scaling parameters according to alpha
-XI_H /= np.sqrt(1 + 1 / (2 * ALPHA))
-XI_P /= np.sqrt(1 + 1 / (2 * ALPHA))
-
+# LOADING THE GS ATOM
 # Define the directory and file name
 DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
 FILE_NAME = '02_He_02e.csv'
@@ -248,16 +221,17 @@ ZZ = p_num
 M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
 
 # STORAGE PARAMETERS
-cross_data = []
-initial_states = []
-final_states = []
-traj_saved = False
+CROSS_DATA = []
+INI_STATES = []
+FINAL_STATES = []
+TRAJ_SAVED = False
 
 # DYNAMIC SIMULATION
+ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # Initial energies (a.u.)
 E0 = ENERGIES[ID]
 # Initialize counters
-n_double = 0
-n_single = 0
+N_DOUBLE = 0
+N_SINGLE = 0
 
 # # Determine b_max based on initial energy
 # if E0 > THRESH_1:
@@ -405,17 +379,18 @@ for ii in range(N_TRAJ):
     bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
 
     # Classify capture
-    if bound_p and any(bound_electrons):
-        cap_type = 'pbar_electrons_' + str(len(bound_electrons))
-        n_single += 1
-    elif bound_p:
-        cap_type = 'double'
-        n_double += 1
+    if bound_p:
+        if any(bound_electrons):
+            CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
+            N_SINGLE += 1
+        else:
+            CAP_TYPE = 'double'
+            N_DOUBLE += 1
     else:
-        cap_type = 'none'
+        CAP_TYPE = 'none'
 
     # Save the first capture trajectory
-    if ((cap_type != 'none') and (not traj_saved)):
+    if ((CAP_TYPE != 'none') and (not TRAJ_SAVED)):
         times = sol.t
 
         # Extract radial distance of the antiproton
@@ -424,17 +399,15 @@ for ii in range(N_TRAJ):
         # Extract radial distances of the electrons
         electron_radial_distances = {}
         for ii in range(e_num):
-            r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th electron
+            r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th e-
             r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
             electron_radial_distances[f'r_e{ii+1}'] = r_e_modulus
 
         # Combine all trajectory data into a single dictionary
-        trajectory_data = []
-        for idx, t in enumerate(times):
-            row = {'time': t, 'r_p': r_p[idx]}
-            for key, value in electron_radial_distances.items():
-                row[key] = value[idx]
-            trajectory_data.append(row)
+        trajectory_data = [
+            {'time': t, 'r_p': r_p[idx], **{key: value[idx] for key, value in electron_radial_distances.items()}}
+            for idx, t in enumerate(times)
+        ]
 
         # Save the trajectory data to a CSV file
         trajectory_file = os.path.join(DIRECTORY_PBAR,
@@ -446,39 +419,35 @@ for ii in range(N_TRAJ):
             writer.writeheader()
             writer.writerows(trajectory_data)
 
-        traj_saved = True
+        TRAJ_SAVED = True
 
-    initial_states.append((E0, L_init, cap_type))
-    final_states.append((Ef_pbar, E_electrons, Lf_pbar, cap_type))
+    INI_STATES.append((E0, L_init, CAP_TYPE))
+    FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
 
 # COMPUTE CROSS SECTIONS
-sigma_tot = np.pi * BMAX**2 * (n_double + n_single) / N_TRAJ
-sigma_sng = np.pi * BMAX**2 * n_single / N_TRAJ
-sigma_dbl = np.pi * BMAX**2 * n_double / N_TRAJ
-cross_data.append((E0, sigma_tot, sigma_sng, sigma_dbl))
+CROSS_DATA = np.pi * BMAX**2 * np.array([
+    (N_DOUBLE + N_SINGLE) / N_TRAJ,
+    N_SINGLE / N_TRAJ,
+    N_DOUBLE / N_TRAJ
+]).T
 
-# Save the combined data to a single CSV file
-output_file = os.path.join(DIRECTORY_PBAR, f'ini_e_{E0}_R0_{XPBAR}.csv')
-with open(output_file, mode='w', newline='', encoding='utf-8') as file:
-    fieldnames = [
-        'Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double',
-        'E_initial', 'L_initial', 'Type_initial',
-        'E_final', 'E_electrons', 'L_final', 'Type_final'
-    ]
-    writer = csv.DictWriter(file, fieldnames=fieldnames)
+# SAVE CSVs except trajectories which is just for the first capture
+with open(f'cross_sections_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
+    writer.writerows(CROSS_DATA)
 
-    writer.writeheader()
-    for ii, (cross, initial, final) in enumerate(zip(cross_data, initial_states, final_states)):
-        writer.writerow({
-            'Energy': cross[0],
-            'Sigma_total': cross[1],
-            'Sigma_single': cross[2],
-            'Sigma_double': cross[3],
-            'E_initial': initial[0],
-            'L_initial': initial[1],
-            'Type_initial': initial[2],
-            'E_final': final[0],
-            'E_electrons': final[1],
-            'L_final': final[2],
-            'Type_final': final[3],
-        })
+with open(f'initial_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['E_initial', 'L_initial', 'type'])
+    writer.writerows(INI_STATES)
+
+with open(f'final_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+          encoding='utf-8') as file:
+    writer = csv.writer(file)
+    writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
+    for row in FINAL_STATES:
+        # Convert E_electrons (list) to a string for CSV compatibility
+        writer.writerow([row[0], str(row[1]), row[2], row[3]])
