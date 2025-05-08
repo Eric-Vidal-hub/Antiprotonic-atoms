@@ -24,7 +24,7 @@ import numpy as np
 import csv
 from scipy.integrate import solve_ivp
 from HPC_FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
-                           N_TRAJ, T_MAX, BMAX, XPBAR)
+                           N_TRAJ, T_MAX, BMAX, XPBAR, DIRECTORY_ATOM)
 
 
 # %% FUNCTIONS
@@ -49,7 +49,7 @@ def compute_forces(t, state):
     dp_dt_electrons_flat = np.zeros(3 * num_electrons)
 
     # Small constant to prevent division by zero or extremely small norms
-    epsilon = 1e-18 
+    epsilon = 1e-18
 
     # --- Forces and derivatives for Electrons ---
     for ii in range(num_electrons):
@@ -65,21 +65,18 @@ def compute_forces(t, state):
             # The exponent term can become very large negatively or positively.
             # np.exp can overflow or underflow.
             hei_arg_exp = (ri_norm * pi_norm / XI_H)**4
-            # Cap the argument to prevent overflow if needed, though for large positive hei_arg_exp,
-            # (1 - hei_arg_exp) becomes large negative, leading to exp_hei -> 0.
-            # If hei_arg_exp is very small, (1 - hei_arg_exp) ~ 1, exp_hei ~ exp(ALPHA)
-            if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -700: # exp(-700) is ~0
+            # Cap the argument to prevent overflows or underflows
+            # If hei_arg_exp is very small, exp_hei ~ exp(ALPHA)
+            if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -300:
                 exp_hei = 0.0
-            elif ALPHA * (1-hei_arg_exp) > 700: # exp(700) overflows
-                exp_hei = np.exp(700) # Cap to a very large number
+            elif ALPHA * (1-hei_arg_exp) > 300:  # exp(300) overflows
+                exp_hei = np.exp(300)
             else:
                 exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
-            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3)  # Removed epsilon from XI_H**3, assuming XI_H is well-defined
-
+            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3)
         # Time derivative of r_i: dr_i/dt = dH/dp_i
-        # Assuming H contains p_i^2/2m and the Heisenberg term contributes -v_hei * r_i to dH/dp_i
         dri_dt = pi - v_hei * ri  # Check signs if m_e is not 1
-        dr_dt_electrons_flat[3 * ii : 3*(ii+1)] = dri_dt
+        dr_dt_electrons_flat[3*ii:3*(ii+1)] = dri_dt
 
         # --- Forces for dp_i/dt = -dV/dr_i ---
         # 1. Electron-nucleus interaction (attractive potential V = -ZZ/||ri||)
@@ -88,10 +85,13 @@ def compute_forces(t, state):
 
         # 2. Electron-electron interaction (repulsive potential V_ij = 1/||ri-rj||)
         # Force on i from j: F_ij = -grad_i(V_ij) = (ri - rj) / ||ri - rj||^3
-        r_diff = r_electrons - ri  # Vector differences
-        norm_r_diff = np.linalg.norm(r_diff, axis=1) + epsilon  # Norms
-        norm_r_diff_cubed = norm_r_diff**3
-        f_ee_sum = np.sum(r_diff / norm_r_diff_cubed[:, None], axis=0)
+        f_ee_sum = np.zeros(3)
+        for jj in range(num_electrons):
+            if ii == jj:
+                continue
+            r_ij = ri - r_electrons[jj]
+            norm_r_ij = np.linalg.norm(r_ij)
+            f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
         
         # 3. Electron-antiproton interaction (attractive potential V_ipbar = -1/||ri-rpbar||)
         # Force on i from pbar: F_ipbar = -grad_i(V_ipbar) = -(ri - r_pbar) / ||ri - r_pbar||^3
@@ -103,7 +103,7 @@ def compute_forces(t, state):
         # Assuming the Heisenberg term contributes +v_hei * pi to -dV_H/dr_i
         f_heisenberg_p = v_hei * pi
 
-        dp_dt_electrons_flat[3 * ii : 3*(ii+1)] = f_en + f_ee_sum + f_epbar + f_heisenberg_p
+        dp_dt_electrons_flat[3*ii:3*(ii+1)] = f_en + f_ee_sum + f_epbar + f_heisenberg_p
 
     # --- Forces and derivatives for Antiproton ---
     # Time derivative of R_pbar: dR_pbar/dt = dH/dP_pbar = P_pbar / M_STAR
@@ -187,10 +187,6 @@ else:
     print('Directory exists!')
 
 # LOADING THE GS ATOM
-# Define the directory and file name
-DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_previous_z_as_ic/'
-FILE_NAME = '02_He_02e.csv'
-
 # Read the CSV file using the csv module
 helium_data = []
 with open(DIRECTORY_ATOM + FILE_NAME, mode='r') as file:
@@ -203,7 +199,9 @@ required_col = ['p_num', 'e_num', 'optimal_configuration']
 if not all(col in helium_data[0] for col in required_col):
     raise KeyError(f"Missing required columns in the CSV file: {required_col}")
 
-# Process the data
+# Expected config: r0_1, r0_i, theta_r_1, theta_r_i, phi_r_1, phi_r_i, p0_1,
+# p0_i, theta_p_1, theta_p_i, phi_p_1, phi_p_i
+# Convert to numpy arrays
 for row in helium_data:
     p_num = int(row['p_num'])
     e_num = int(row['e_num'])
@@ -275,7 +273,7 @@ for ii in range(N_TRAJ):
     sol = solve_ivp(
         compute_forces,
         (0.0, T_MAX), y0,
-        method='RK45', rtol=1e-6, atol=1e-9
+        method='DOP853', rtol=1e-6, atol=1e-9
     )
 
     # SOLUTION
@@ -425,26 +423,27 @@ for ii in range(N_TRAJ):
     FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
 
 # COMPUTE CROSS SECTIONS
-CROSS_DATA = np.pi * BMAX**2 * np.array([
-    (N_DOUBLE + N_SINGLE) / N_TRAJ,
-    N_SINGLE / N_TRAJ,
-    N_DOUBLE / N_TRAJ
-]).T
+CROSS_DATA.append([
+    E0,
+    np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,
+    np.pi * BMAX**2 * N_SINGLE / N_TRAJ,
+    np.pi * BMAX**2 * N_DOUBLE / N_TRAJ
+])
 
 # SAVE CSVs except trajectories which is just for the first capture
-with open(f'cross_sections_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
           encoding='utf-8') as file:
     writer = csv.writer(file)
     writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
     writer.writerows(CROSS_DATA)
 
-with open(f'initial_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+with open(DIRECTORY_PBAR + f'initial_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
           encoding='utf-8') as file:
     writer = csv.writer(file)
     writer.writerow(['E_initial', 'L_initial', 'type'])
     writer.writerows(INI_STATES)
 
-with open(f'final_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+with open(DIRECTORY_PBAR + f'final_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
           encoding='utf-8') as file:
     writer = csv.writer(file)
     writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
