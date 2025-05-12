@@ -16,4 +16,4 @@ cd ~/Antiprotonic-atoms/
 OUTDIR="/scratch/vym17xaj/HPC_dynamics_R0_50.0_Ntraj_100/"
 
 # Run the Python script, passing OUTDIR and the array ID
-python v5_HPC_ccs_run.py $OUTDIR $SLURM_ARRAY_TASK_ID
+python v6_HPC_ccs_run.py $OUTDIR $SLURM_ARRAY_TASK_ID
