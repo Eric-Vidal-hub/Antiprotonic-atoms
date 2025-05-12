@@ -432,24 +432,24 @@ for ii in range(N_TRAJ):
 
     # SAVE CSVs except trajectories which is just for the first capture
     with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
-          encoding='utf-8') as file:
+              encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
         writer.writerows(CROSS_DATA)
 
     with open(DIRECTORY_PBAR + f'initial_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
-          encoding='utf-8') as file:
+              encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(['E_initial', 'L_initial', 'type'])
         writer.writerows(INI_STATES)
 
     with open(DIRECTORY_PBAR + f'final_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
-          encoding='utf-8') as file:
+              encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
         for row in FINAL_STATES:
-        # Convert E_electrons (list) to a string for CSV compatibility
-        writer.writerow([row[0], str(row[1]), row[2], row[3]])
+            # Convert E_electrons (list) to a string for CSV compatibility
+            writer.writerow([row[0], str(row[1]), row[2], row[3]])
 
     print(f"Simulation completed for E0 = {E0:.3f} a.u. with ID {ID}.")
     print(f"Results saved in {DIRECTORY_PBAR}.")
