@@ -2,13 +2,13 @@ import os
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+from v6_HPC_FMD_constants import (RESULTS_DIR)
 
-results_dir = 'HPC_dynamics_R0_2.0_Ntraj_100'
 
 # --- Plot 1: Capture cross sections vs. Energy ---
-cross_files = sorted(glob.glob(os.path.join(results_dir, 'cross_sections_E0_*.csv')))
+cross_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'cross_sections_E0_*.csv')))
 if not cross_files:
-    print(f"No cross sections files found in {results_dir}")
+    print(f"No cross sections files found in {RESULTS_DIR}")
 else:
     cross_list = []
     for filepath in cross_files:
@@ -29,9 +29,9 @@ else:
     plt.show()
 
 # --- Plot 2: Initial (L_initial, E_initial) Distribution ---
-init_files = sorted(glob.glob(os.path.join(results_dir, 'initial_states_E0_*.csv')))
+init_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'initial_states_E0_*.csv')))
 if not init_files:
-    print(f"No initial_states files found in {results_dir}")
+    print(f"No initial_states files found in {RESULTS_DIR}")
 else:
     init_list = []
     for filepath in init_files:
@@ -51,9 +51,9 @@ else:
     plt.show()
 
 # --- Plot 3: Final (L_final, E_final) Distribution ---
-final_files = sorted(glob.glob(os.path.join(results_dir, 'final_states_E0_*.csv')))
+final_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'final_states_E0_*.csv')))
 if not final_files:
-    print(f"No final_states files found in {results_dir}")
+    print(f"No final_states files found in {RESULTS_DIR}")
 else:
     final_list = []
     for filepath in final_files:
