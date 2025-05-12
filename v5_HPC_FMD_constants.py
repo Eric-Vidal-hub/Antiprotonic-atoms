@@ -30,5 +30,5 @@ TRAJ_SAVED = True
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/'
-DIRECTORY_ATOM += '02_He_02e.csv'
+DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_alpha_modifying/' \
+                + '02_He_02e.csv'
