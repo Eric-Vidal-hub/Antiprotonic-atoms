@@ -28,7 +28,7 @@ else:
     plt.tight_layout()
     plt.show()
 
-# --- Plot 2: Initial (E_initial, L_initial) Distribution ---
+# --- Plot 2: Initial (L_initial, E_initial) Distribution ---
 init_files = sorted(glob.glob(os.path.join(results_dir, 'initial_states_E0_*.csv')))
 if not init_files:
     print(f"No initial_states files found in {results_dir}")
@@ -41,16 +41,16 @@ else:
     plt.figure()
     for cap_type in init_all['type'].unique():
         subset = init_all[init_all['type'] == cap_type]
-        plt.scatter(subset['E_initial'], subset['L_initial'], label=cap_type, alpha=0.6)
-    plt.xlabel('Initial Energy (a.u.)')
-    plt.ylabel('Initial Angular Momentum L (a.u.)')
-    plt.title('Initial (E, L) Distribution by Capture Type')
+        plt.scatter(subset['L_initial'], subset['E_initial'], label=cap_type, alpha=0.6)  # Swapped axes
+    plt.xlabel('Initial Angular Momentum L (a.u.)')  # Updated label
+    plt.ylabel('Initial Energy (a.u.)')  # Updated label
+    plt.title('Initial (L, E) Distribution by Capture Type')  # Updated title
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
 
-# --- Plot 3: Final (E_final, L_final) Distribution ---
+# --- Plot 3: Final (L_final, E_final) Distribution ---
 final_files = sorted(glob.glob(os.path.join(results_dir, 'final_states_E0_*.csv')))
 if not final_files:
     print(f"No final_states files found in {results_dir}")
@@ -63,10 +63,10 @@ else:
     plt.figure()
     for cap_type in final_all['type'].unique():
         subset = final_all[final_all['type'] == cap_type]
-        plt.scatter(subset['E_final'], subset['L_final'], label=cap_type, alpha=0.6)
-    plt.xlabel('Final Energy (a.u.)')
-    plt.ylabel('Final Angular Momentum L (a.u.)')
-    plt.title('Final (E, L) Distribution by Capture Type')
+        plt.scatter(subset['L_final'], subset['E_final'], label=cap_type, alpha=0.6)  # Swapped axes
+    plt.xlabel('Final Angular Momentum L (a.u.)')  # Updated label
+    plt.ylabel('Final Energy (a.u.)')  # Updated label
+    plt.title('Final (L, E) Distribution by Capture Type')  # Updated title
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
