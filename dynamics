@@ -13,7 +13,7 @@ source activate ~/.conda/envs/hiwi-polaron
 cd ~/Antiprotonic-atoms/
 
 # Create a per-job output directory:
-OUTDIR="/scratch/vym17xaj/HPC_dynamics_R0_5.0_Ntraj_100/"
+OUTDIR="/scratch/vym17xaj/HPC_dynamics_R0_3.0_Ntraj_100/"
 
 # Run the Python script, passing OUTDIR and the array ID
 python v6_HPC_ccs_run.py $OUTDIR $SLURM_ARRAY_TASK_ID
