@@ -23,7 +23,7 @@ import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
-from HPC_FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
+from v5_HPC_FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E, N_STEP,
                            N_TRAJ, T_MAX, BMAX, XPBAR, DIRECTORY_ATOM)
 
 
