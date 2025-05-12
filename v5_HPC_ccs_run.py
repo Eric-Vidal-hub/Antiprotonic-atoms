@@ -20,7 +20,6 @@ Dependencies:
 """
 import sys
 import os
-from networkx import could_be_isomorphic
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
@@ -95,13 +94,13 @@ def compute_forces(t, state):
             r_ij = ri - r_electrons[jj]
             norm_r_ij = np.linalg.norm(r_ij)
             f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
-        
+
         # 3. Electron-antiproton interaction (attractive potential V_ipbar = -1/||ri-rpbar||)
         # Force on i from pbar: F_ipbar = -grad_i(V_ipbar) = -(ri - r_pbar) / ||ri - r_pbar||^3
         r_ipbar = ri - r_pbar
         norm_r_ipbar = np.linalg.norm(r_ipbar)
         f_epbar = -r_ipbar / (norm_r_ipbar**3 + epsilon)
-        
+
         # Heisenberg force component on momentum: -dV_H/dr_i
         # Assuming the Heisenberg term contributes +v_hei * pi to -dV_H/dr_i
         f_heisenberg_p = v_hei * pi
@@ -126,10 +125,10 @@ def compute_forces(t, state):
         # r_ipbar was ri - r_pbar. So (r_electrons[i] - r_pbar) is correct here.
         # norm_r_ipbar was norm(ri - r_pbar)
         # Need to recalculate for each electron interaction if not already available
-        vec_ei_to_pbar = r_pbar - r_electrons[ii] # Vector from electron i to antiproton
+        vec_ei_to_pbar = r_pbar - r_electrons[ii]   # Vector from electron i to antiproton
         norm_vec_ei_to_pbar = np.linalg.norm(vec_ei_to_pbar)
         # Force on antiproton from electron i is attractive, pointing towards electron i.
-        f_pbar_e_sum += -vec_ei_to_pbar / (norm_vec_ei_to_pbar**3 + epsilon) # Force on pbar is towards electron
+        f_pbar_e_sum += -vec_ei_to_pbar / (norm_vec_ei_to_pbar**3 + epsilon)    # Force on pbar is towards electron
 
     dP_pbar_dt = f_pbar_nuc + f_pbar_e_sum
 
@@ -395,7 +394,7 @@ for ii in range(N_TRAJ):
         else:
             CAP_TYPE = 'double'
             N_DOUBLE += 1
-        
+
         # Save the first capture trajectory
         if TRAJ_SAVED:
             times = sol.t
@@ -415,8 +414,7 @@ for ii in range(N_TRAJ):
             ]
 
             # Save the trajectory data to a CSV file
-            trajectory_file = os.path.join(DIRECTORY_PBAR,
-                            f'trajectory_example_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv')
+            trajectory_file = os.path.join(DIRECTORY_PBAR, f'trajectory_example_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv')
             with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
                 fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
