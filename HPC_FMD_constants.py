@@ -15,7 +15,7 @@ print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 MIN_E = 0.1           # Minimum initial energy (a.u.)
 MAX_E = 3.0           # Maximum initial energy (a.u.)
 N_STEP = 16           # Number of energy steps
-N_TRAJ = 5          # Number of trajectories per energy
+N_TRAJ = 100          # Number of trajectories per energy
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
 BMAX = 3.0            # Maximum impact parameter (a.u.)
 XPBAR = 2.0          # Initial distance of antiproton (a.u.)

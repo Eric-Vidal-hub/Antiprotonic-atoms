@@ -409,7 +409,7 @@ for ii in range(N_TRAJ):
 
         # Save the trajectory data to a CSV file
         trajectory_file = os.path.join(DIRECTORY_PBAR,
-                                       f'trajectory_example_{ii}_E0_{E0}.csv')
+                           f'trajectory_example_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv')
         with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
             fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -419,37 +419,37 @@ for ii in range(N_TRAJ):
 
         TRAJ_SAVED = True
 
-    INI_STATES.append((E0, L_init, CAP_TYPE))
-    FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
+        INI_STATES.append((E0, L_init, CAP_TYPE))
+        FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
 
-# COMPUTE CROSS SECTIONS
-CROSS_DATA.append([
-    E0,
-    np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,
-    np.pi * BMAX**2 * N_SINGLE / N_TRAJ,
-    np.pi * BMAX**2 * N_DOUBLE / N_TRAJ
-])
+    # COMPUTE CROSS SECTIONS
+    CROSS_DATA.append([
+        E0,
+        np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,
+        np.pi * BMAX**2 * N_SINGLE / N_TRAJ,
+        np.pi * BMAX**2 * N_DOUBLE / N_TRAJ
+    ])
 
-# SAVE CSVs except trajectories which is just for the first capture
-with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+    # SAVE CSVs except trajectories which is just for the first capture
+    with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
           encoding='utf-8') as file:
-    writer = csv.writer(file)
-    writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
-    writer.writerows(CROSS_DATA)
+        writer = csv.writer(file)
+        writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
+        writer.writerows(CROSS_DATA)
 
-with open(DIRECTORY_PBAR + f'initial_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+    with open(DIRECTORY_PBAR + f'initial_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
           encoding='utf-8') as file:
-    writer = csv.writer(file)
-    writer.writerow(['E_initial', 'L_initial', 'type'])
-    writer.writerows(INI_STATES)
+        writer = csv.writer(file)
+        writer.writerow(['E_initial', 'L_initial', 'type'])
+        writer.writerows(INI_STATES)
 
-with open(DIRECTORY_PBAR + f'final_states_E0_{E0}_R0_{XPBAR}.csv', mode='w', newline='',
+    with open(DIRECTORY_PBAR + f'final_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
           encoding='utf-8') as file:
-    writer = csv.writer(file)
-    writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
-    for row in FINAL_STATES:
+        writer = csv.writer(file)
+        writer.writerow(['E_final', 'E_electrons', 'L_final', 'type'])
+        for row in FINAL_STATES:
         # Convert E_electrons (list) to a string for CSV compatibility
         writer.writerow([row[0], str(row[1]), row[2], row[3]])
 
-print(f"Simulation completed for E0 = {E0} a.u. with ID {ID}.")
-print(f"Results saved in {DIRECTORY_PBAR}.")
+    print(f"Simulation completed for E0 = {E0:.3f} a.u. with ID {ID}.")
+    print(f"Results saved in {DIRECTORY_PBAR}.")
