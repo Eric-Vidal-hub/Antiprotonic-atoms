@@ -255,11 +255,10 @@ for ii in range(N_TRAJ):
 
     # ANTIPROTON INITIALIZATION
     # Random impact parameter uniform in area
-    # b = np.sqrt(np.random.random() * BMAX / np.pi)
-    b = np.sqrt(np.random.random()) * BMAX
+    BB = np.sqrt(np.random.random()) * BMAX
     angle = 2 * np.pi * np.random.random()
     # Launch antiproton far away along +x with offset in y
-    r0_pbar = np.array([-XPBAR, b * np.cos(angle), b * np.sin(angle)])
+    r0_pbar = np.array([-XPBAR, BB * np.cos(angle), BB * np.sin(angle)])
     # initial momentum vector
     p0_pbar = np.array([np.sqrt(2 * E0 * M_STAR), 0.0, 0.0])
     # Record initial and final (E,L)
