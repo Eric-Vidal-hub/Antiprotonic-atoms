@@ -11,13 +11,16 @@ to plot ground state energy, electron distribution, and relative error.
 
 import os
 import re
+from matplotlib import markers
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Global font sizes
-labelfontsize = 18
-tickfontsize = 14
+labelfontsize = 24
+tickfontsize = 24
+ticklength = 5
+tickwidth = 2
 
 
 def read_nist_data(directory):
@@ -52,27 +55,33 @@ def plot_combined_results(aggregated_df, nist_data, output_dir):
     :param nist_data: Dictionary with NIST data.
     :param output_dir: Directory to save the plots.
     """
+    markersize = 9
+    markeredgewidth = 2  # Increased from previous value
+
     plt.figure(figsize=(10, 6))
     # Plot NIST data
     atomic_numbers = list(nist_data.keys())
     minus_etot_values = list(nist_data.values())
-    plt.plot(atomic_numbers, minus_etot_values, 'o', markersize=5,
+    plt.plot(atomic_numbers[:52], minus_etot_values[:52], 'o', markersize=markersize,
              linestyle='None', label='NIST-LDA', markeredgecolor='orange',
-             markerfacecolor='orange')
+             markerfacecolor='orange', markeredgewidth=markeredgewidth)
     
     # Plot results from files
     plt.plot(aggregated_df['e_num'],
              np.abs(aggregated_df['ground_state_energy']),
-             'o', markersize=5, linestyle='None', label='BFGS',
-             markeredgecolor='darkblue', markerfacecolor='none')
+             'o', markersize=markersize, linestyle='None', label='BFGS',
+             markeredgecolor='darkblue', markerfacecolor='none', markeredgewidth=markeredgewidth)
 
     plt.xlabel(r'$Z$', fontsize=labelfontsize)
     plt.ylabel(r'$-E_{GS}$ (a.u.)', fontsize=labelfontsize)
+    plt.xlim(0, 53)
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
+    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
     plt.yscale('log')
     plt.grid(True)
-    plt.legend(fontsize=10, loc='best')
+    plt.legend(fontsize=18, loc='best')
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'combined_fig_gs_e_vs_nist.svg'))
     plt.close()
 
@@ -112,7 +121,9 @@ def plot_electron_distribution(aggregated_df, output_dir):
     plt.yscale('log')
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
+    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'electron_distribution.svg'))
     plt.close()
 
@@ -152,7 +163,9 @@ def plot_momenta_distribution(aggregated_df, output_dir):
     plt.yscale('log')
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
+    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'momenta_distribution.svg'))
     plt.close()
 
@@ -183,11 +196,13 @@ def plot_relative_error(aggregated_df, nist_data, output_dir):
                      linestyle='None', color='blue')
 
     plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'Relative Error = $|\frac{E_{GS, BFGS} -E_{GS, NIST}}'
+    plt.ylabel(r'$|\frac{E_{GS, BFGS} -E_{GS, NIST}}'
                r'{E_{GS, NIST}}|$ (%)', fontsize=labelfontsize)
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
+    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'combined_relative_error.svg'))
     plt.close()
 
@@ -262,7 +277,7 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
 
 # Define the directories
 hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                   'HPC_results_gs_with_previous_z_as_ic_new')
+                   'HPC_results_gs_with_previous_z_as_ic')
 output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
 
 # Specify the file range (optional)
