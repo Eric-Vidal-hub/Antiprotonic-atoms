@@ -10,8 +10,7 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # Set the style for the plot
-mpl.use('Agg')  # Use a non-interactive backend for saving figures
-plt.style.use('default')
+plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['figure.figsize'] = (12, 8)
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.weight'] = 'normal'
@@ -34,7 +33,7 @@ plt.rcParams['axes.linewidth'] = 2
 # Set the style for the figure
 plt.rcParams['figure.facecolor'] = 'white'
 # Set the style for the text
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = False
 
 
 # Scaled relative momentum X = pr / (ħξ)
@@ -72,14 +71,8 @@ ax.text(
 ax.set_xlabel(r'$pr/\xi$')
 ax.set_ylabel(r'Energy $\cdot \; \mu r^2/\xi^2$')
 ax.set_xlim(0, 1.2)
-ax.set_ylim(0, 4.5)
+# ax.set_ylim(0, 4.5)
 ax.set_aspect('auto', adjustable='box')
-ax.text(-0.07, -0.32, "0.0", ha='left', va='bottom')
-
-xlabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_xticks()]
-ylabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_yticks()]
-ax.set_xticklabels(xlabels)
-ax.set_yticklabels(ylabels)
 
 plt.tick_params(
     axis='both', which='both', direction='in', top=True, right=True

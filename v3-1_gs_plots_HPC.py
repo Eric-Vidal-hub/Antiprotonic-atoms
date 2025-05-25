@@ -11,17 +11,40 @@ to plot ground state energy, electron distribution, and relative error.
 
 import os
 import re
-from matplotlib import markers
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Global font sizes
-labelfontsize = 24
-tickfontsize = 24
-ticklength = 5
-tickwidth = 2
 
+# Set the style for the plot
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = 32
+plt.rcParams['axes.labelsize'] = 42
+plt.rcParams['legend.fontsize'] = 26
+plt.rcParams['xtick.major.size'] = 10
+plt.rcParams['xtick.major.width'] = 2
+plt.rcParams['ytick.major.size'] = 10
+plt.rcParams['ytick.major.width'] = 2
+plt.rcParams['xtick.minor.size'] = 5
+plt.rcParams['xtick.minor.width'] = 1.5
+plt.rcParams['ytick.minor.size'] = 5
+plt.rcParams['ytick.minor.width'] = 1.5
+plt.rcParams['lines.linewidth'] = 3
+# Set the style for the grid
+plt.rcParams['grid.linestyle'] = '--'
+plt.rcParams['grid.linewidth'] = 1
+# Set the style for the ticks
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+# Set the style for the axes
+plt.rcParams['axes.linewidth'] = 2
+# Set the style for the figure
+plt.rcParams['figure.facecolor'] = 'white'
+# Set the style for the text
+plt.rcParams['text.usetex'] = False
 
 def read_nist_data(directory):
     """
@@ -56,9 +79,9 @@ def plot_combined_results(aggregated_df, nist_data, output_dir):
     :param output_dir: Directory to save the plots.
     """
     markersize = 9
-    markeredgewidth = 2  # Increased from previous value
+    markeredgewidth = 2
 
-    plt.figure(figsize=(10, 6))
+    plt.figure()
     # Plot NIST data
     atomic_numbers = list(nist_data.keys())
     minus_etot_values = list(nist_data.values())
@@ -70,17 +93,17 @@ def plot_combined_results(aggregated_df, nist_data, output_dir):
     plt.plot(aggregated_df['e_num'],
              np.abs(aggregated_df['ground_state_energy']),
              'o', markersize=markersize, linestyle='None', label='BFGS',
-             markeredgecolor='darkblue', markerfacecolor='none', markeredgewidth=markeredgewidth)
+             markeredgecolor='darkblue', markerfacecolor='none',
+             markeredgewidth=markeredgewidth)
 
-    plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'$-E_{GS}$ (a.u.)', fontsize=labelfontsize)
+    plt.xlabel(r'$Z$')
+    plt.ylabel(r'$-E_{GS}$ (a.u.)')
     plt.xlim(0, 53)
-    plt.xticks(fontsize=tickfontsize)
-    plt.yticks(fontsize=tickfontsize)
-    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
+    plt.tick_params(axis='both', which='both', direction='in',
+                    top=True, right=True)
     plt.yscale('log')
     plt.grid(True)
-    plt.legend(fontsize=18, loc='best')
+    plt.legend(loc='best')
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'combined_fig_gs_e_vs_nist.svg'))
     plt.close()
@@ -96,7 +119,7 @@ def plot_electron_distribution(aggregated_df, output_dir):
     """
     markersize = 6
     markeredgewidth = 1.5
-    plt.figure(figsize=(10, 6))
+    plt.figure()
     for _, group in aggregated_df.groupby('file_name'):
         for _, row in group.iterrows():
             e_num = int(row['e_num'])
@@ -116,12 +139,11 @@ def plot_electron_distribution(aggregated_df, output_dir):
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
 
-    plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'$r_0$', fontsize=labelfontsize)
+    plt.xlabel(r'$Z$')
+    plt.ylabel(r'$r_0$')
     plt.yscale('log')
-    plt.xticks(fontsize=tickfontsize)
-    plt.yticks(fontsize=tickfontsize)
-    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
+    plt.tick_params(axis='both', which='both', direction='in',
+                    top=True, right=True)
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'electron_distribution.svg'))
@@ -138,7 +160,7 @@ def plot_momenta_distribution(aggregated_df, output_dir):
     """
     markersize = 6
     markeredgewidth = 1.5
-    plt.figure(figsize=(10, 6))
+    plt.figure()
     for _, group in aggregated_df.groupby('file_name'):
         for _, row in group.iterrows():
             e_num = int(row['e_num'])
@@ -158,12 +180,11 @@ def plot_momenta_distribution(aggregated_df, output_dir):
                              markerfacecolor='none',
                              markeredgewidth=markeredgewidth)
 
-    plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'$p_0$', fontsize=labelfontsize)
+    plt.xlabel(r'$Z$')
+    plt.ylabel(r'$p_0$')
     plt.yscale('log')
-    plt.xticks(fontsize=tickfontsize)
-    plt.yticks(fontsize=tickfontsize)
-    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
+    plt.tick_params(axis='both', which='both', direction='in',
+                    top=True, right=True)
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'momenta_distribution.svg'))
@@ -178,7 +199,7 @@ def plot_relative_error(aggregated_df, nist_data, output_dir):
     :param nist_data: Dictionary with NIST data.
     :param output_dir: Directory to save the plots.
     """
-    plt.figure(figsize=(10, 6))
+    plt.figure()
     # Plot relative error for results
     for _, group in aggregated_df.groupby('file_name'):
         errors = []
@@ -195,12 +216,10 @@ def plot_relative_error(aggregated_df, nist_data, output_dir):
             plt.plot(e_nums, rel_errors, 'o', markersize=7,
                      linestyle='None', color='blue')
 
-    plt.xlabel(r'$Z$', fontsize=labelfontsize)
-    plt.ylabel(r'$|\frac{E_{GS, BFGS} -E_{GS, NIST}}'
-               r'{E_{GS, NIST}}|$ (%)', fontsize=labelfontsize)
-    plt.xticks(fontsize=tickfontsize)
-    plt.yticks(fontsize=tickfontsize)
-    plt.tick_params(axis='both', which='both', direction='in', length=ticklength, width=tickwidth, top=True, right=True)
+    plt.xlabel(r'$Z$')
+    plt.ylabel(r'$|\frac{E_{GS, BFGS} -E_{GS, NIST}}{E_{GS, NIST}}|$ (%)')
+    plt.tick_params(axis='both', which='both', direction='in',
+                    top=True, right=True)
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'combined_relative_error.svg'))
