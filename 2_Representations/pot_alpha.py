@@ -6,6 +6,9 @@ import matplotlib as mpl
 plt.rcParams['font.size'] = 26
 
 # Set the style of the plots
+plt.rcParams['lines.linewidth'] = 3
+
+# Set the style of the plots
 mpl.rc('text', usetex=False)
 
 # Scaled relative momentum X = pr / (ħξ)
@@ -24,15 +27,15 @@ norm = plt.Normalize(alphas.min(), alphas.max())
 plt.figure(figsize=(12, 8))
 
 # Plot kinetic energy (same for all)
-plt.plot(X, ke_scaled, color='black', linewidth=2, label=r'$p^2/m$')
+plt.plot(X, ke_scaled, color='black', label=r'$p^2/m$')
 
 # Plot for each alpha
 for alpha in alphas:
     color = cmap(norm(alpha))
     vp_scaled = (1 / (4 * alpha)) * np.exp(alpha * (1 - X**4))
     total_scaled = ke_scaled + vp_scaled
-    plt.plot(X, vp_scaled, color=color, linestyle=':', linewidth=1, alpha=0.8)
-    plt.plot(X, total_scaled, color=color, linestyle='-', linewidth=1.5, alpha=0.8,
+    plt.plot(X, vp_scaled, color=color, linestyle=':', alpha=0.8)
+    plt.plot(X, total_scaled, color=color, linestyle='-', alpha=0.8,
              label=f'Total ($\\alpha$={alpha:.2f})' if alpha == alphas[0] else None)
 
 # Relocated text labels for the new x/y limits (previous positions)
@@ -42,8 +45,8 @@ plt.text(0.4, 1.7, r'$v_p$', fontsize=textfontsize, ha='left', color=cmap(norm(a
 plt.text(0.2, 2.3, r'Total', fontsize=textfontsize, ha='center', color=cmap(norm(alphas[0])))
 
 # Labels
-plt.xlabel(r'$pr/\hbar\xi$')
-plt.ylabel(r'Energy $\cdot \; mr^2/(\hbar^2\xi^2)$')
+plt.xlabel(r'$pr/\xi$')
+plt.ylabel(r'Energy $\cdot \; \mu r^2/\xi^2$')
 
 # Set new x limit and keep y limit
 plt.xlim(0, 1.2)
@@ -68,7 +71,7 @@ ax.set_yticklabels(ylabels)
 plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
 plt.minorticks_on()
 
-plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.5)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 
 # Colorbar for alpha
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)

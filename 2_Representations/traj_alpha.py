@@ -1,15 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from scipy.integrate import solve_ivp
+
+# Set default font size and line width
+plt.rcParams['font.size'] = 26
+plt.rcParams['lines.linewidth'] = 3
+mpl.rc('text', usetex=False)
 
 
 def hamiltonian_equations(t, y, m_param, xi_param, hbar_param, alpha_param):
     r, p = y
-    # u = (p*r / (hbar*xi))**2
-    # For simplicity in expression, precalculate common terms
-    pr_factor = p * r / (hbar_param * xi_param)
-    u_val = pr_factor**2
-    exp_term = np.exp(-alpha_param * (u_val - 1))
+    # Hamiltonian equations of motion
+    # r = position, p = momentum
+    # precalculated terms
+    u_val = (p * r / (hbar_param * xi_param))**4
+    exp_term = np.exp(alpha_param * (1 - u_val))
 
     # dr/dt = ∂H/∂p
     # Original H = p^2/m + (xi^2*hbar^2 / (m*r^2*2*alpha)) * exp(-alpha*(u-1))
@@ -35,16 +41,17 @@ def hamiltonian_equations(t, y, m_param, xi_param, hbar_param, alpha_param):
     return [dr_dt, dp_dt]
 
 
-# Set parameters (can be scaled out, but let's use some values)
+# Parameters
 m = 1.0
-xi = 1.0  # Effectively sets the scale for pr
+xi = 1.0
 hbar = 1.0
 
-alphas_to_plot = [1.0, 1.5, 2.5]    # As in the paper's figure 2
-colors = ['blue', 'green', 'red']   # For different alphas
+alphas_to_plot = [1.0, 1.5, 2.5]
+colors = [plt.cm.viridis((a-1)/(2.5-1)) for a in alphas_to_plot]
+markers = ['s', 'o', '^']
 linestyles = ['-', '--', ':']
 
-plt.figure(figsize=(7, 8))
+plt.figure(figsize=(12, 8))
 
 # Initial conditions:
 # We need to choose an energy. The plot shows different trajectories,
@@ -92,7 +99,7 @@ E_target = 0.8  # Arbitrary energy units, adjust this to get good loops
 t_span = [0, 10]
 t_eval = np.linspace(t_span[0], t_span[1], 1000)
 
-for i, alpha_val in enumerate(alphas_to_plot):
+for i, (alpha_val, color, marker, ls) in enumerate(zip(alphas_to_plot, colors, markers, linestyles)):
     # For this alpha, Vp(r,0) = (1 / (2*alpha_val*r^2)) * exp(alpha_val)
     # If E_target = Vp(r_min_eff, 0), then
     # r_min_eff_sq = exp(alpha_val) / (2*alpha_val*E_target)
@@ -124,87 +131,41 @@ for i, alpha_val in enumerate(alphas_to_plot):
     valid_indices = r_traj > 0.01   # Adjust threshold as needed
     
     # Plot trajectory
-    plt.plot(r_traj[valid_indices], p_traj[valid_indices], 
-             color='black',     # Paper uses solid black lines with markers
-             # linestyle=linestyles[i],
-             linewidth=1.0, 
-             label=f'α={alpha_val}')
-             
-    # Add markers like in the paper (e.g., triangles for alpha=2.5)
-    if alpha_val == 2.5:
-        plt.plot(r_traj[valid_indices][::50], p_traj[valid_indices][::50], 
-                 marker='^', markersize=5, fillstyle='none', color='black', linestyle='None')
-    elif alpha_val == 1.5:
-        plt.plot(r_traj[valid_indices][::50], p_traj[valid_indices][::50],
-                 marker='o', markersize=5, fillstyle='none', color='black', linestyle='None')
-    elif alpha_val == 1.0:
-        plt.plot(r_traj[valid_indices][::50], p_traj[valid_indices][::50],
-                 marker='s', markersize=5, fillstyle='none', color='black', linestyle='None')
+    plt.plot(r_traj[valid_indices], p_traj[valid_indices],
+             color=color, linestyle=ls, linewidth=3, label=f'$\alpha={alpha_val}$')
+
+    # Add markers
+    plt.plot(r_traj[valid_indices][::50], p_traj[valid_indices][::50],
+             marker=marker, markersize=10, fillstyle='none', color=color, linestyle='None')
 
 
-# Add labels for alpha values on the plot (approximate)
-plt.text(1.5, 0.4, "α=1.0", fontsize=10)    # Adjust positions based on plot
-plt.text(1.0, 0.6, "α=1.5", fontsize=10)
-plt.text(0.6, 0.8, "α=2.5", fontsize=10)
+# Text labels for alpha values (adjust as needed)
+textfontsize = 20
+plt.text(1.5, 0.4, r'$\alpha=1.0$', fontsize=textfontsize, color=colors[0])
+plt.text(1.0, 0.6, r'$\alpha=1.5$', fontsize=textfontsize, color=colors[1])
+plt.text(0.6, 0.8, r'$\alpha=2.5$', fontsize=textfontsize, color=colors[2])
 
+# Labels
+plt.xlabel(r'Position (arb. units)', fontsize=26)
+plt.ylabel(r'Momentum (arb. units)', fontsize=26)
 
-# Labels and Title
-plt.xlabel('POSITION IN ARB. UNITS', fontsize=10)
-plt.ylabel('MOMENTUM IN ARB. UNITS', fontsize=10)
-# plt.title('Fig. 2 Phase Space Trajectories (Pauli Core Only)')
+# Set limits and aspect
+plt.xlim(0, 2.5)
+plt.ylim(-1.0, 1.0)
+plt.gca().set_aspect('auto', adjustable='box')
 
-# Set limits to roughly match the paper's appearance
-# The paper's plot seems to go from r slightly > 0 to ~2.5-3.0
-# And p from ~-1.0 to ~1.0
-plt.xlim(0, 2.5)    # Adjust as needed
-plt.ylim(-1.0, 1.0)     # Adjust as needed
+# Ticks and formatting
+plt.xticks([0, 0.5, 1.0, 1.5, 2.0, 2.5], fontsize=36)
+plt.yticks([-1.0, -0.5, 0, 0.5, 1.0], fontsize=36)
+ax = plt.gca()
+xlabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_xticks()]
+ylabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_yticks()]
+ax.set_xticklabels(xlabels, fontsize=36)
+ax.set_yticklabels(ylabels, fontsize=36)
+plt.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=36)
+plt.minorticks_on()
 
-plt.axhline(0, color='black', linewidth=0.75)   # Horizontal axis
-plt.axvline(0, color='black', linewidth=0.75)   # Vertical axis (though plot starts at r>0)
-
-
-plt.grid(False)
-# plt.legend() # Paper doesn't have a legend, uses labels on plot
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-plt.gca().spines['left'].set_position('zero')
-plt.gca().spines['bottom'].set_position('zero')
-# Remove 0 from axis if it's created by set_position('zero')
-# plt.xticks([t for t in plt.xticks()[0] if t != 0])
-# plt.yticks([t for t in plt.yticks()[0] if t != 0])
-
-# Attempt to remove only the origin '0' tick labels if they exist
-# current_xticks = list(plt.gca().get_xticks())
-# current_yticks = list(plt.gca().get_yticks())
-# if 0 in current_xticks: current_xticks.remove(0)
-# if 0 in current_yticks: current_yticks.remove(0)
-# plt.gca().set_xticks(current_xticks)
-# plt.gca().set_yticks(current_yticks)
-
-# More robust way to handle ticks if axes pass through zero
-# For x-axis (position)
-if plt.gca().get_xlim()[0] < 0 < plt.gca().get_xlim()[1]:
-    plt.xticks(list(plt.xticks()[0]) + [0.0])   # Ensure 0 is a tick
-    labels = [item.get_text() for item in plt.gca().get_xticklabels()]
-    # Find '0.0' or '0' and remove, or make it conditional
-else:   # If x-axis starts at 0 (or >0)
-    plt.gca().spines['left'].set_visible(False)     # Remove y-axis line if x starts at 0
-    plt.yticks([])  # Remove y-ticks
-    plt.ylabel("")
-
-# For y-axis (momentum)
-if plt.gca().get_ylim()[0] < 0 < plt.gca().get_ylim()[1]:
-    plt.yticks(list(plt.yticks()[0]) + [0.0])
-    labels_y = [item.get_text() for item in plt.gca().get_yticklabels()]
-else:
-    plt.gca().spines['bottom'].set_visible(False)
-    plt.xticks([])
-    plt.xlabel("")
-
-
-# Set a fixed aspect ratio if desired, though "auto" might be fine
-# plt.gca().set_aspect('equal', adjustable='box')
-
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 
 plt.tight_layout()
 plt.show()
