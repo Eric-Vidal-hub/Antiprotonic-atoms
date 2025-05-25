@@ -1,83 +1,102 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import os
 
-# Set default font size
-plt.rcParams['font.size'] = 26
 
-# Set the style of the plots
+# Directory to save the output figure
+output_dir = os.path.join(os.path.dirname(__file__), 'output')
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Set the style for the plot
+mpl.use('Agg')  # Use a non-interactive backend for saving figures
+plt.style.use('default')
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = 30
+plt.rcParams['axes.labelsize'] = 36
+plt.rcParams['legend.fontsize'] = 26
+plt.rcParams['xtick.major.size'] = 10
+plt.rcParams['xtick.major.width'] = 2
+plt.rcParams['ytick.major.size'] = 10
+plt.rcParams['ytick.major.width'] = 2
 plt.rcParams['lines.linewidth'] = 3
+# Set the style for the grid
+plt.rcParams['grid.linestyle'] = '--'
+plt.rcParams['grid.linewidth'] = 1
+# Set the style for the ticks
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+# Set the style for the axes
+plt.rcParams['axes.linewidth'] = 2
+# Set the style for the figure
+plt.rcParams['figure.facecolor'] = 'white'
+# Set the style for the text
+plt.rcParams['text.usetex'] = True
 
-# Set the style of the plots
-mpl.rc('text', usetex=False)
 
 # Scaled relative momentum X = pr / (ħξ)
 X = np.linspace(0, 1.6, 400)
-
-# Kinetic energy is the same for all curves
 ke_scaled = X**2
-
-# Alphas to iterate over
-alphas = np.linspace(3.4, 4.6, 7)  # 7 steps from 3.5 to 4.5
-
-# Colormap for fading effect
+alphas = np.linspace(3.4, 4.6, 7)
 cmap = plt.cm.viridis
 norm = plt.Normalize(alphas.min(), alphas.max())
 
-plt.figure(figsize=(12, 8))
+fig, ax = plt.subplots()
 
-# Plot kinetic energy (same for all)
-plt.plot(X, ke_scaled, color='black', label=r'$p^2/m$')
+ax.plot(X, ke_scaled, color='black', label=r'$p^2/m$')
 
-# Plot for each alpha
 for alpha in alphas:
     color = cmap(norm(alpha))
     vp_scaled = (1 / (4 * alpha)) * np.exp(alpha * (1 - X**4))
     total_scaled = ke_scaled + vp_scaled
-    plt.plot(X, vp_scaled, color=color, linestyle=':', alpha=0.8)
-    plt.plot(X, total_scaled, color=color, linestyle='-', alpha=0.8,
-             label=f'Total ($\\alpha$={alpha:.2f})' if alpha == alphas[0] else None)
+    ax.plot(X, vp_scaled, color=color, linestyle=':', alpha=0.8)
+    ax.plot(
+        X, total_scaled, color=color, linestyle='-', alpha=0.8,
+        label=f'Total ($\\alpha$={alpha:.2f})' if alpha == alphas[0] else None
+    )
 
-# Relocated text labels for the new x/y limits (previous positions)
-textfontsize = 20
-plt.text(0.55, 0.5, r'$p^2/m$', fontsize=textfontsize, ha='left', color='black')
-plt.text(0.4, 1.7, r'$v_p$', fontsize=textfontsize, ha='left', color=cmap(norm(alphas[0])))
-plt.text(0.2, 2.3, r'Total', fontsize=textfontsize, ha='center', color=cmap(norm(alphas[0])))
+textfontsize = 28
+ax.text(0.55, 0.5, r'$p^2/m$', fontsize=textfontsize, ha='left', color='black')
+ax.text(
+    0.4, 1.7, r'$v_p$', fontsize=textfontsize, ha='left',
+    color=cmap(norm(alphas[0]))
+)
+ax.text(
+    0.15, 1.8, r'Total', fontsize=textfontsize, ha='center',
+    color=cmap(norm(alphas[0]))
+)
 
-# Labels
-plt.xlabel(r'$pr/\xi$')
-plt.ylabel(r'Energy $\cdot \; \mu r^2/\xi^2$')
+ax.set_xlabel(r'$pr/\xi$')
+ax.set_ylabel(r'Energy $\cdot \; \mu r^2/\xi^2$')
+ax.set_xlim(0, 1.2)
+ax.set_ylim(0, 4.5)
+ax.set_aspect('auto', adjustable='box')
+ax.text(-0.07, -0.32, "0.0", ha='left', va='bottom')
 
-# Set new x limit and keep y limit
-plt.xlim(0, 1.2)
-plt.ylim(0, 4.5)
-plt.gca().set_aspect('auto', adjustable='box')
-
-# Add a single zero at the bottom left corner, slightly offset to avoid overlap
-plt.text(-0.08, -0.22, "0.0", ha='left', va='bottom')
-
-# Set ticks as before
-plt.xticks(np.arange(0, 1.3, 0.2))
-plt.yticks(np.arange(0, 4.6, 0.5))
-
-# Remove the first (zero) tick label from both axes, and always show one decimal
-ax = plt.gca()
 xlabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_xticks()]
 ylabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_yticks()]
 ax.set_xticklabels(xlabels)
 ax.set_yticklabels(ylabels)
 
-# Ticks inwards and on all sides, with minor ticks
-plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
-plt.minorticks_on()
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
 
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+plt.grid(
+    True, which='both', linestyle='--', linewidth=1, alpha=0.5
+)
 
-# Colorbar for alpha
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 sm.set_array([])
-cbar = plt.colorbar(sm, pad=0.02)
+cbar = plt.colorbar(sm, ax=ax, pad=0.02)
 cbar.set_label(r'$\alpha$')
+cbar.ax.tick_params(
+    axis='y', which='both', direction='in', length=12, width=2,
+    right=True, left=True, labelsize=26
+)
 
 plt.tight_layout()
-plt.show()
+plt.savefig(os.path.join(output_dir, 'pot_alpha.svg'))
