@@ -93,3 +93,4 @@ cbar.ax.tick_params(
 
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, 'pot_alpha.svg'))
+plt.show()
