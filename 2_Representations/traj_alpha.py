@@ -2,60 +2,69 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.integrate import solve_ivp
+import os
 
-# Set default font size and line width
-plt.rcParams['font.size'] = 26
+
+# Output directory (optional, for saving)
+output_dir = os.path.join(os.path.dirname(__file__), 'output')
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Style settings (copied from pot_alpha.py)
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = 30
+plt.rcParams['axes.labelsize'] = 36
+plt.rcParams['legend.fontsize'] = 26
+plt.rcParams['xtick.major.size'] = 10
+plt.rcParams['xtick.major.width'] = 2
+plt.rcParams['ytick.major.size'] = 10
+plt.rcParams['ytick.major.width'] = 2
 plt.rcParams['lines.linewidth'] = 3
-mpl.rc('text', usetex=False)
+plt.rcParams['grid.linestyle'] = '--'
+plt.rcParams['grid.linewidth'] = 1
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+plt.rcParams['axes.linewidth'] = 2
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['text.usetex'] = False
 
 
-def hamiltonian_equations(t, y, m_param, xi_param, hbar_param, alpha_param):
-    r, p = y
+def hamiltonian_equations(t, yy, m_param, xi_param, alpha_param):
+    rr, pp = yy
     # Hamiltonian equations of motion
     # r = position, p = momentum
     # precalculated terms
-    u_val = (p * r / (hbar_param * xi_param))**4
-    exp_term = np.exp(alpha_param * (1 - u_val))
+    u_val = pp * rr / xi_param
+    exp_term = np.exp(alpha_param * (1 - u_val**4))
 
+    # Original H = p^2/m + (xi^2 / (4*alpha * m*r^2)) * exp(alpha*(1-u^4))
     # dr/dt = ∂H/∂p
-    # Original H = p^2/m + (xi^2*hbar^2 / (m*r^2*2*alpha)) * exp(-alpha*(u-1))
-    # dHdp_term1 = 2*p/m_param
-    # dHdp_term2_coeff = (xi_param**2 * hbar_param**2) / (m_param * r**2 * 2 * alpha_param)
-    # d_exp_du = exp_term * (-alpha_param)
-    # du_dp = 2 * (p * r**2) / (hbar_param**2 * xi_param**2)
-    # dr_dt = dHdp_term1 + dHdp_term2_coeff * d_exp_du * du_dp
-    # This is equivalent to the simpler form:
-    dr_dt = (p / m_param) * (2 - exp_term)
+    dr_dt = (pp / m_param) * (2 - u_val**2 * exp_term)
 
     # dp/dt = -∂H/∂r
-    # dHdr_term_pot_r_cubed = -2 * (xi_param**2 * hbar_param**2) / (m_param * r**3 * 2 * alpha_param) * exp_term
-    # d_exp_du_for_r = exp_term * (-alpha_param)
-    # du_dr = 2 * (p**2 * r) / (hbar_param**2 * xi_param**2)
-    # dHdr_term_pot_exp_deriv = (xi_param**2 * hbar_param**2) / (m_param * r**2 * 2 * alpha_param) * d_exp_du_for_r * du_dr
-    # dp_dt = -(dHdr_term_pot_r_cubed + dHdr_term_pot_exp_deriv)
-    # This is equivalent to the simpler form:
-    factor1 = 1 / (m_param * r)
-    factor2 = (xi_param**2 * hbar_param**2) / (alpha_param * r**2) + p**2
-    dp_dt = factor1 * exp_term * factor2
-    
+    dp_dt = (1 / (2 * alpha_param) + u_val**4) * (xi_param**2 / (m_param * rr**3)) * exp_term
     return [dr_dt, dp_dt]
 
 
 # Parameters
 m = 1.0
 xi = 1.0
-hbar = 1.0
 
-alphas_to_plot = [1.0, 1.5, 2.5]
-colors = [plt.cm.viridis((a-1)/(2.5-1)) for a in alphas_to_plot]
-markers = ['s', 'o', '^']
-linestyles = ['-', '--', ':']
+alphas_to_plot = np.linspace(2.5, 4.5, 7)
+cmap = plt.cm.viridis
+norm = plt.Normalize(alphas_to_plot.min(), alphas_to_plot.max())
+colors = [cmap(norm(a)) for a in alphas_to_plot]
+markers = ['s', 'o', '^', 'D', 'v', '>', '<']
+linestyles = ['-', '--', ':', '-.', (0, (3, 1, 1, 1)), (0, (1, 1)), (0, (5, 1))]
 
-plt.figure(figsize=(12, 8))
+fig, ax = plt.subplots()
 
 # Initial conditions:
 # We need to choose an energy. The plot shows different trajectories,
-# which implies different energies or different r_min for p=0.
+# which implies different energies or different x_c (closest distance) for p=0.
 # Since the shape only depends on alpha, we can pick a consistent way to start.
 # Let's start near a turning point where p is small.
 # If p_init = 0, then dr/dt = 0, which is not good for integration start.
@@ -99,73 +108,42 @@ E_target = 0.8  # Arbitrary energy units, adjust this to get good loops
 t_span = [0, 10]
 t_eval = np.linspace(t_span[0], t_span[1], 1000)
 
-for i, (alpha_val, color, marker, ls) in enumerate(zip(alphas_to_plot, colors, markers, linestyles)):
-    # For this alpha, Vp(r,0) = (1 / (2*alpha_val*r^2)) * exp(alpha_val)
-    # If E_target = Vp(r_min_eff, 0), then
-    # r_min_eff_sq = exp(alpha_val) / (2*alpha_val*E_target)
-    # r_min_eff = np.sqrt(r_min_eff_sq)
-    # print(f"Alpha: {alpha_val}, Effective r_min for E={E_target}: {r_min_eff:.2f}")
-    
-    # Heuristic p_initial based on E_target
-    # This assumes Vp is small at r_init_large, which might not be true if p_init is large.
-    p_initial = -np.sqrt(1.0 * E_target)    # Incoming, m=1
-    
-    # Adjust p_initial if Vp(r_init_large, p_initial) is too large or complex to estimate
-    # Let's try a fixed p_initial that is known to produce loops for alpha=2.5
-    if alpha_val == 2.5:
-        p_initial_val = -0.85     # Tuned by trial and error for alpha=2.5
-    elif alpha_val == 1.5:
-        p_initial_val = -0.75     # Needs tuning
-    else:   # alpha_val == 1.0
-        p_initial_val = -0.65     # Needs tuning
-      
+for i, (alpha_val, color, marker, ls) in enumerate(
+        zip(alphas_to_plot, colors, markers, linestyles)):
+    p_initial_val = -0.85  # + 0.2 * (alpha_val - alphas_to_plot[0])
     y0 = [r_init_large, p_initial_val]
-
-    sol = solve_ivp(hamiltonian_equations, t_span, y0, args=(m, xi, hbar, alpha_val),
-                    dense_output=True, t_eval=t_eval, method='RK45', rtol=1e-6, atol=1e-8)
-
+    sol = solve_ivp(
+        hamiltonian_equations, t_span, y0, args=(m, xi, alpha_val),
+        dense_output=True, t_eval=t_eval, method='RK45', rtol=1e-6, atol=1e-8)
     r_traj = sol.y[0]
     p_traj = sol.y[1]
+    valid_indices = r_traj > 0.01
+    ax.plot(
+        r_traj[valid_indices], p_traj[valid_indices],
+        color=color, linewidth=3
+    )
 
-    # Filter out parts where r might become negative or too small causing instability
-    valid_indices = r_traj > 0.01   # Adjust threshold as needed
-    
-    # Plot trajectory
-    plt.plot(r_traj[valid_indices], p_traj[valid_indices],
-             color=color, linestyle=ls, linewidth=3, label=f'$\alpha={alpha_val}$')
+ax.set_xlabel(r'$r$ (a. u.)')
+ax.set_ylabel(r'$p$ (a. u.)')
+ax.set_xlim(0.8, 3.0)
+ax.set_ylim(-1.0, 1.0)
+ax.set_aspect('auto', adjustable='box')
 
-    # Add markers
-    plt.plot(r_traj[valid_indices][::50], p_traj[valid_indices][::50],
-             marker=marker, markersize=10, fillstyle='none', color=color, linestyle='None')
-
-
-# Text labels for alpha values (adjust as needed)
-textfontsize = 20
-plt.text(1.5, 0.4, r'$\alpha=1.0$', fontsize=textfontsize, color=colors[0])
-plt.text(1.0, 0.6, r'$\alpha=1.5$', fontsize=textfontsize, color=colors[1])
-plt.text(0.6, 0.8, r'$\alpha=2.5$', fontsize=textfontsize, color=colors[2])
-
-# Labels
-plt.xlabel(r'Position (arb. units)', fontsize=26)
-plt.ylabel(r'Momentum (arb. units)', fontsize=26)
-
-# Set limits and aspect
-plt.xlim(0, 2.5)
-plt.ylim(-1.0, 1.0)
-plt.gca().set_aspect('auto', adjustable='box')
-
-# Ticks and formatting
-plt.xticks([0, 0.5, 1.0, 1.5, 2.0, 2.5], fontsize=36)
-plt.yticks([-1.0, -0.5, 0, 0.5, 1.0], fontsize=36)
-ax = plt.gca()
-xlabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_xticks()]
-ylabels = ["" if tick == 0 else f"{tick:.1f}" for tick in ax.get_yticks()]
-ax.set_xticklabels(xlabels, fontsize=36)
-ax.set_yticklabels(ylabels, fontsize=36)
-plt.tick_params(axis='both', which='both', direction='in', top=True, right=True, labelsize=36)
-plt.minorticks_on()
-
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
 plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 
+# Colorbar for alpha
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+cbar = plt.colorbar(sm, ax=ax, pad=0.02)
+cbar.set_label(r'$\alpha$')
+cbar.ax.tick_params(
+    axis='y', which='both', direction='in', length=12, width=2,
+    right=True, left=True, labelsize=26
+)
+
 plt.tight_layout()
+plt.savefig(os.path.join(output_dir, 'traj_alpha.svg'))
 plt.show()
