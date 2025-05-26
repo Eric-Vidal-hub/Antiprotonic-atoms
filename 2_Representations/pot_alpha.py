@@ -58,7 +58,7 @@ for alpha in alphas:
     )
 
 textfontsize = 28
-ax.text(0.55, 0.5, r'$p^2/m$', fontsize=textfontsize, ha='left', color='black')
+ax.text(0.5, 0.5, r'$p^2/\mu$', fontsize=textfontsize, ha='left', color='black')
 ax.text(
     0.4, 1.7, r'$v_p$', fontsize=textfontsize, ha='left',
     color=cmap(norm(alphas[0]))
