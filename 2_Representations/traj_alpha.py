@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.integrate import solve_ivp
 import os
+from scipy.signal import argrelextrema
 
 
 # Output directory (optional, for saving)
@@ -108,9 +109,8 @@ E_target = 0.8  # Arbitrary energy units, adjust this to get good loops
 t_span = [0, 10]
 t_eval = np.linspace(t_span[0], t_span[1], 1000)
 
-for i, (alpha_val, color, marker, ls) in enumerate(
-        zip(alphas_to_plot, colors, markers, linestyles)):
-    p_initial_val = -0.85  # + 0.2 * (alpha_val - alphas_to_plot[0])
+for i, (alpha_val, color) in enumerate(zip(alphas_to_plot, colors)):
+    p_initial_val = -0.85   # + 0.2 * (alpha_val - alphas_to_plot[0])
     y0 = [r_init_large, p_initial_val]
     sol = solve_ivp(
         hamiltonian_equations, t_span, y0, args=(m, xi, alpha_val),
@@ -122,6 +122,46 @@ for i, (alpha_val, color, marker, ls) in enumerate(
         r_traj[valid_indices], p_traj[valid_indices],
         color=color, linewidth=3
     )
+
+    # For the highest alpha, add vertical lines and labels
+    if i == len(alphas_to_plot) - 1:
+        # Closest approach (minimum r)
+        r_c = r_traj[valid_indices][np.argmin(r_traj[valid_indices])]
+        p_c = p_traj[valid_indices][np.argmin(r_traj[valid_indices])]
+        # Black vertical line at r_c
+        ax.axvline(r_c, color='black', linestyle='--', linewidth=2)
+        # Red cross at (r_c, p_c)
+        ax.plot(r_c, p_c, 'x', color='red', markersize=14, markeredgewidth=3)
+        # Red label for r_c
+        ax.text(
+            r_c - 0.08, p_c, r'$r_c$', color='red', fontsize=28,
+            ha='center', va='bottom'
+        )
+
+        # Red cross at (r_c, -p_c)
+        ax.plot(r_c, -p_c, 'x', color='red', markersize=14, markeredgewidth=3)
+        # Red label for r_c
+        ax.text(
+            r_c - 0.08, -p_c, r'$r_c$', color='red', fontsize=28,
+            ha='center', va='bottom'
+        )
+
+
+        # Where p crosses zero (find first crossing)
+        sign_change = np.where(np.diff(np.sign(p_traj[valid_indices])))[0]
+        if len(sign_change) > 0:
+            idx0 = sign_change[0]
+            # Linear interpolation for more accurate r_0
+            p1, p2 = p_traj[valid_indices][idx0], p_traj[valid_indices][idx0+1]
+            r1, r2 = r_traj[valid_indices][idx0], r_traj[valid_indices][idx0+1]
+            r_0 = r1 - p1 * (r2 - r1) / (p2 - p1)
+            # Interpolated p should be zero, but for plotting, use 0
+            ax.plot(r_0, 0, 'x', color='royalblue', markersize=14, markeredgewidth=3)
+            # Blue label for r_0
+            ax.text(
+                r_0 + 0.08, 0.08, r'$r_0$', color='royalblue', fontsize=28,
+                ha='center', va='bottom'
+            )
 
 ax.set_xlabel(r'$r$ (a. u.)')
 ax.set_ylabel(r'$p$ (a. u.)')
