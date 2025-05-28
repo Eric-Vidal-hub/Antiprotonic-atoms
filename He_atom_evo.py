@@ -1,11 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 import os
 import csv
 import time
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import animation
 
 
 def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
@@ -117,27 +114,6 @@ output_dir = os.path.join(os.path.dirname(__file__), 'He_atom_evo_output')
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-# Style settings (copied from pot_alpha.py)
-plt.rcParams['mathtext.fontset'] = 'cm'
-plt.rcParams['figure.figsize'] = (12, 8)
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['font.weight'] = 'normal'
-plt.rcParams['font.size'] = 30
-plt.rcParams['axes.labelsize'] = 36
-plt.rcParams['legend.fontsize'] = 26
-plt.rcParams['xtick.major.size'] = 10
-plt.rcParams['xtick.major.width'] = 2
-plt.rcParams['ytick.major.size'] = 10
-plt.rcParams['ytick.major.width'] = 2
-plt.rcParams['lines.linewidth'] = 3
-plt.rcParams['grid.linestyle'] = '--'
-plt.rcParams['grid.linewidth'] = 1
-plt.rcParams['xtick.direction'] = 'in'
-plt.rcParams['ytick.direction'] = 'in'
-plt.rcParams['axes.linewidth'] = 2
-plt.rcParams['figure.facecolor'] = 'white'
-plt.rcParams['text.usetex'] = False
-
 # LOADING THE GS ATOM
 # Read the CSV file using the csv module
 helium_data = []
@@ -230,68 +206,6 @@ print(f"Final momentum of electrons: {pf_e}")
 t_arr = sol.t
 y_arr = sol.y  # shape: (6*e_num, len(t_arr))
 
-# Compute position modulus for each electron at each time step
-position_modulus = []
-for i in range(e_num):
-    # Extract x, y, z for electron i at all times
-    x = y_arr[3*i, :]
-    y = y_arr[3*i+1, :]
-    z = y_arr[3*i+2, :]
-    modulus = np.sqrt(x**2 + y**2 + z**2)
-    position_modulus.append(modulus)
-
-# Plot evolution of position modulus
-plt.figure(figsize=(10, 6))
-linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
-for i, modulus in enumerate(position_modulus):
-    plt.plot(
-        t_arr, modulus, label=f'Electron {i+1}',
-        linestyle=linestyles[i % len(linestyles)]
-    )
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
-plt.ylim(0, 1)
-plt.legend()
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time.svg'))
-plt.show()
-
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection='3d')
-
-# Prepare lines for each electron
-lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0] for i in range(e_num)]
-
-# Set axis limits (adjust as needed)
-ax.set_xlim(-2, 2)
-ax.set_ylim(-2, 2)
-ax.set_zlim(-2, 2)
-ax.set_xlabel('x (a.u.)')
-ax.set_ylabel('y (a.u.)')
-ax.set_zlabel('z (a.u.)')
-ax.legend()
-
-def init():
-    for line in lines:
-        line.set_data([], [])
-        line.set_3d_properties([])
-    return lines
-
-def animate(frame):
-    for i, line in enumerate(lines):
-        x = y_arr[3*i, :frame]
-        y = y_arr[3*i+1, :frame]
-        z = y_arr[3*i+2, :frame]
-        line.set_data(x, y)
-        line.set_3d_properties(z)
-    return lines
-
-ani = animation.FuncAnimation(
-    fig, animate, frames=len(t_arr), init_func=init,
-    interval=20, blit=True
-)
-
-# To save the animation as mp4 (requires ffmpeg):
-ani.save(os.path.join(output_dir, 'trajectory_evolution.mp4'), writer='ffmpeg', fps=30)
-
-plt.show()
+# Save t_arr and y_arr to a .npz file
+np.savez(os.path.join(output_dir, 'trajectory_data.npz'),
+         t_arr=t_arr, y_arr=y_arr, e_num=e_num)
