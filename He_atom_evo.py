@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 import os
 import csv
+import time
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import animation
 
 
 def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
@@ -13,7 +16,7 @@ def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
     It returns derivatives dy/dt according to Hamilton's equations.
     """
     # Unpack state vector into shaped arrays for easier handling
-    num_electrons = len(state)  # Calculate the number of electrons
+    num_electrons = len(state) // 6     # Calculate the number of electrons
     r_e_flat = state[:3 * num_electrons]
     p_e_flat = state[3 * num_electrons:]
 
@@ -138,7 +141,7 @@ plt.rcParams['text.usetex'] = False
 # LOADING THE GS ATOM
 # Read the CSV file using the csv module
 helium_data = []
-DIRECTORY_ATOM = os.path.join('HPC_results_gs_with_alpha_modifying', 'He_atom.csv')
+DIRECTORY_ATOM = os.path.join('HPC_results_gs_with_previous_z_as_ic', '02_He_02e.csv')
 with open(DIRECTORY_ATOM, mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
@@ -167,10 +170,17 @@ for row in helium_data:
 # Atomic number Z, number of protons
 ZZ = p_num
 
+
+# ATOM RANDOM ORIENTATION
+# Randomize the angles
+# theta_rnd = np.pi * np.random.random()
+# phi_rnd = 2 * np.pi * np.random.random()
+theta_rnd = 0
+phi_rnd = 0
 # Convert to Cartesian coordinates
 rx, ry, rz, px, py, pz = convert_to_cartesian(
-    r0, theta_r, phi_r,
-    p0, theta_p, phi_p)
+    r0, theta_r + theta_rnd, phi_r + phi_rnd,
+    p0, theta_p + theta_rnd, phi_p + phi_rnd)
 
 # INITIAL STATE VECTOR
 # coordinates per particle: re1(3), re2(3),
@@ -181,7 +191,7 @@ y0 = np.concatenate(
     )
 
 # Time span for integration
-t_span = [0, 25000]
+t_span = [0, 150]
 # t_eval = np.linspace(t_span[0], t_span[1], 1000)
 
 # Parameters
@@ -196,15 +206,19 @@ print(f"Reduced mass M_STAR: {M_STAR}, Heisenberg parameter XI_H: {XI_H}")
 
 
 # INTEGRATION
+start_time = time.time()
 sol = solve_ivp(
     hamiltonian_equations, t_span, y0, args=(M_STAR, ZZ, XI_H, ALPHA),
-    dense_output=True, method='RK45', rtol=1e-6, atol=1e-8)
+    method='DOP853', rtol=1e-6, atol=1e-8)
+end_time = time.time()
+
+print(f"Simulation time: {end_time - start_time:.2f} seconds")
 # SOLUTION
 yf = sol.y[:, -1]
 
 # Extract initial position and momentum of electrons
 rf_e = yf[:3 * e_num]
-pf_e = yf[3 * e_num:-6]
+pf_e = yf[3 * e_num:]
 # Ensure the vectors are 1D
 rf_e = np.array(rf_e).flatten()
 pf_e = np.array(pf_e).flatten()
@@ -212,31 +226,72 @@ pf_e = np.array(pf_e).flatten()
 print(f"Final position of electrons: {rf_e}")
 print(f"Final momentum of electrons: {pf_e}")
 
+# Get the time array and solution array
+t_arr = sol.t
+y_arr = sol.y  # shape: (6*e_num, len(t_arr))
 
-# Plot the evolution of the electron positions and momenta
-fig, ax = plt.subplots()
+# Compute position modulus for each electron at each time step
+position_modulus = []
+for i in range(e_num):
+    # Extract x, y, z for electron i at all times
+    x = y_arr[3*i, :]
+    y = y_arr[3*i+1, :]
+    z = y_arr[3*i+2, :]
+    modulus = np.sqrt(x**2 + y**2 + z**2)
+    position_modulus.append(modulus)
 
-ax.set_xlabel(r'$r$ (a. u.)')
-ax.set_ylabel(r'$p$ (a. u.)')
-ax.set_xlim(0.8, 3.0)
-ax.set_ylim(-1.0, 1.0)
-ax.set_aspect('auto', adjustable='box')
-
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-
-# Colorbar for alpha
-sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-sm.set_array([])
-cbar = plt.colorbar(sm, ax=ax, pad=0.02)
-cbar.set_label(r'$\alpha$')
-cbar.ax.tick_params(
-    axis='y', which='both', direction='in', length=12, width=2,
-    right=True, left=True, labelsize=26
-)
-
+# Plot evolution of position modulus
+plt.figure(figsize=(10, 6))
+linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
+for i, modulus in enumerate(position_modulus):
+    plt.plot(
+        t_arr, modulus, label=f'Electron {i+1}',
+        linestyle=linestyles[i % len(linestyles)]
+    )
+plt.xlabel(r'$t$ (a.u.)')
+plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
+plt.ylim(0, 1)
+plt.legend()
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'traj_alpha.svg'))
+plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time.svg'))
+plt.show()
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+
+# Prepare lines for each electron
+lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0] for i in range(e_num)]
+
+# Set axis limits (adjust as needed)
+ax.set_xlim(-2, 2)
+ax.set_ylim(-2, 2)
+ax.set_zlim(-2, 2)
+ax.set_xlabel('x (a.u.)')
+ax.set_ylabel('y (a.u.)')
+ax.set_zlabel('z (a.u.)')
+ax.legend()
+
+def init():
+    for line in lines:
+        line.set_data([], [])
+        line.set_3d_properties([])
+    return lines
+
+def animate(frame):
+    for i, line in enumerate(lines):
+        x = y_arr[3*i, :frame]
+        y = y_arr[3*i+1, :frame]
+        z = y_arr[3*i+2, :frame]
+        line.set_data(x, y)
+        line.set_3d_properties(z)
+    return lines
+
+ani = animation.FuncAnimation(
+    fig, animate, frames=len(t_arr), init_func=init,
+    interval=20, blit=True
+)
+
+# To save the animation as mp4 (requires ffmpeg):
+ani.save(os.path.join(output_dir, 'trajectory_evolution.mp4'), writer='ffmpeg', fps=30)
+
 plt.show()

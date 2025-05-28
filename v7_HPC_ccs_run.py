@@ -244,14 +244,11 @@ else:
     BMAX = BMAX_0
 
 for ii in range(N_TRAJ):
-    # ATOM RANDOM ORIENTATION
-    # Randomize the angles
-    theta_rnd = np.pi * np.random.random()
-    phi_rnd = 2 * np.pi * np.random.random()
+    # ATOM
     # Convert to Cartesian coordinates
     rx, ry, rz, px, py, pz = convert_to_cartesian(
-        r0, theta_r + theta_rnd, phi_r + phi_rnd,
-        p0, theta_p + theta_rnd, phi_p + phi_rnd)
+        r0, theta_r, phi_r,
+        p0, theta_p, phi_p)
 
     # ANTIPROTON INITIALIZATION
     # Random impact parameter uniform in area
