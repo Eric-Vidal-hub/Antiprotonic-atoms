@@ -65,7 +65,7 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
             if ii != jj:
                 r_ij = ri - r_electrons[jj]
                 norm_r_ij = np.linalg.norm(r_ij)
-                f_ee_sum += np.abs(r_ij) / (norm_r_ij**3 + epsilon)
+                f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
 
         f_heisenberg_p = 2 * (v_hei / (ri_norm**2 + epsilon)) * (1 + 2 * ALPHA * hei_arg_exp)
 
