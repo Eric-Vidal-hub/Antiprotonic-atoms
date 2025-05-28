@@ -66,7 +66,8 @@ def compute_forces(t, state):
         if ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon:
             # The exponent term can become very large negatively or positively.
             # np.exp can overflow or underflow.
-            hei_arg_exp = (ri_norm * pi_norm / XI_H)**4
+            uu = (ri_norm * pi_norm / XI_H)**2
+            hei_arg_exp = uu**2
             # Cap the argument to prevent overflows or underflows
             # If hei_arg_exp is very small, exp_hei ~ exp(ALPHA)
             if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -300:
@@ -75,9 +76,10 @@ def compute_forces(t, state):
                 exp_hei = np.exp(300)
             else:
                 exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
-            v_hei = ri_norm * pi_norm**3 * exp_hei / (XI_H**3)
+            v_hei = (XI_H**2 / (4 * ALPHA * ri_norm**2 * M_STAR)) * exp_hei
+
         # Time derivative of r_i: dr_i/dt = dH/dp_i
-        dri_dt = pi - v_hei * ri  # Check signs if m_e is not 1
+        dri_dt = pi * (1 - (1 / M_STAR) * uu * exp_hei)
         dr_dt_electrons_flat[3*ii:3*(ii+1)] = dri_dt
 
         # --- Forces for dp_i/dt = -dV/dr_i ---

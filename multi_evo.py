@@ -3,9 +3,11 @@ from scipy.integrate import solve_ivp
 import os
 import csv
 import time
+from multi_constants import (M_PBAR, ALPHA, XI_H, XI_P, T_MAX, N_STEP,
+                             DIRECTORY_ATOM, RESULTS_DIR)
 
 
-def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
+def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
     """
     Generalized force computation for an arbitrary number of electrons.
     Given state vector y = [r1(3), r2(3),
@@ -49,10 +51,10 @@ def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
                 exp_hei = np.exp(300)
             else:
                 exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
-            v_hei = (XI_H**2 / (4 * ALPHA * ri_norm**2 * M_STAR)) * exp_hei
+            v_hei = (XI_H**2 / (4 * ALPHA * ri_norm**2 * MU)) * exp_hei
 
         # Time derivative of r_i: dr_i/dt = dH/dp_i
-        dri_dt = pi * (1 - (1 / M_STAR) * uu * exp_hei)
+        dri_dt = pi * (1 - (1 / MU) * uu * exp_hei)
         dr_dt_electrons_flat[3*ii:3*(ii+1)] = dri_dt
 
         # --- Forces for dp_i/dt = -dV/dr_i ---
@@ -67,13 +69,14 @@ def hamiltonian_equations(t, state, M_STAR, ZZ, XI_H, ALPHA):
 
         f_heisenberg_p = 2 * (v_hei / (ri_norm**2 + epsilon)) * (1 + 2 * ALPHA * hei_arg_exp)
 
-        dp_dt_electrons_flat[3*ii:3*(ii+1)] = pi * (f_en + f_heisenberg_p) + f_ee_sum
+        dp_dt_electrons_flat[3*ii:3*(ii+1)] = ri * (f_en + f_heisenberg_p) + f_ee_sum
 
     # Assemble the full derivative vector in the correct order
     derivatives = np.concatenate([
         dr_dt_electrons_flat,
         dp_dt_electrons_flat
     ])
+    print(f"t: {t}, derivatives: {derivatives}")
 
     return derivatives
 
@@ -110,28 +113,27 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # %% SIMULATION
 # Output directory (optional, for saving)
-output_dir = os.path.join(os.path.dirname(__file__), 'He_atom_evo_output')
+output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # LOADING THE GS ATOM
 # Read the CSV file using the csv module
-helium_data = []
-DIRECTORY_ATOM = os.path.join('HPC_results_gs_with_previous_z_as_ic', '02_He_02e.csv')
+MULTI_DATA = []
 with open(DIRECTORY_ATOM, mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
-        helium_data.append(row)
+        MULTI_DATA.append(row)
 
 # Ensure the expected columns exist
 required_col = ['p_num', 'e_num', 'optimal_configuration']
-if not all(col in helium_data[0] for col in required_col):
+if not all(col in MULTI_DATA[0] for col in required_col):
     raise KeyError(f"Missing required columns in the CSV file: {required_col}")
 
 # Expected config: r0_1, r0_i, theta_r_1, theta_r_i, phi_r_1, phi_r_i, p0_1,
 # p0_i, theta_p_1, theta_p_i, phi_p_1, phi_p_i
 # Convert to numpy arrays
-for row in helium_data:
+for row in MULTI_DATA:
     p_num = int(row['p_num'])
     e_num = int(row['e_num'])
     optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'),
@@ -145,7 +147,7 @@ for row in helium_data:
 
 # Atomic number Z, number of protons
 ZZ = p_num
-
+print(f"Number of protons (Z): {ZZ}, Number of electrons: {e_num}")
 
 # ATOM RANDOM ORIENTATION
 # Randomize the angles
@@ -167,25 +169,25 @@ y0 = np.concatenate(
     )
 
 # Time span for integration
-t_span = [0, 150]
-# t_eval = np.linspace(t_span[0], t_span[1], 1000)
+t_span = [0, T_MAX]
+t_eval = np.linspace(t_span[0], t_span[1], N_STEP)
 
 # Parameters
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
-M_STAR = 1 / (1 + (1 / (2 * ZZ * M_PBAR)))  # Reduced mass (a.u.)
+MU = 1 / (1 + (1 / (2 * ZZ * M_PBAR)))  # Reduced mass (a.u.)
 ALPHA = 5.0
 XI_H = 1.0
 XI_H /= (1 + 1 / (2 * ALPHA))**0.5
 
-print(f"Reduced mass M_STAR: {M_STAR}, Heisenberg parameter XI_H: {XI_H}")
+print(f"Reduced mass MU: {MU}, Heisenberg parameter XI_H: {XI_H}")
 # Number of electrons
 
 
 # INTEGRATION
 start_time = time.time()
 sol = solve_ivp(
-    hamiltonian_equations, t_span, y0, args=(M_STAR, ZZ, XI_H, ALPHA),
-    method='DOP853', rtol=1e-6, atol=1e-8)
+    hamiltonian_equations, t_span, y0, args=(MU, ZZ, XI_H, ALPHA),
+    t_eval=t_eval, dense_output=True, method='LSODA', rtol=1e-8, atol=1e-10)
 end_time = time.time()
 
 print(f"Simulation time: {end_time - start_time:.2f} seconds")
@@ -206,6 +208,14 @@ print(f"Final momentum of electrons: {pf_e}")
 t_arr = sol.t
 y_arr = sol.y  # shape: (6*e_num, len(t_arr))
 
-# Save t_arr and y_arr to a .npz file
-np.savez(os.path.join(output_dir, 'trajectory_data.npz'),
-         t_arr=t_arr, y_arr=y_arr, e_num=e_num)
+# Save t_arr, y_arr, e_num, and simulation parameters to a .npz file
+np.savez(
+    os.path.join(output_dir, 'trajectory_data.npz'),
+    t_arr=t_arr,
+    y_arr=y_arr,
+    e_num=e_num,
+    MU=MU,
+    ZZ=ZZ,
+    XI_H=XI_H,
+    ALPHA=ALPHA
+)

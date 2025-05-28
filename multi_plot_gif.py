@@ -4,9 +4,11 @@ import os
 from matplotlib import animation
 import matplotlib.patches as patches
 from matplotlib.colors import to_rgba
+from multi_constants import (RESULTS_DIR)
+
 
 # Output directory (optional, for saving)
-output_dir = os.path.join(os.path.dirname(__file__), 'He_atom_evo_output')
+output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -48,7 +50,7 @@ plt.rcParams['figure.facecolor'] = 'white'
 plt.rcParams['text.usetex'] = False
 
 # Animation settings
-frame_step = 150  # Adjust this for smoother/faster animation
+frame_step = 1  # Adjust this for smoother/faster animation
 # Create a 3D animation of electron trajectories
 frames = range(0, len(t_arr), frame_step)
 
@@ -66,8 +68,8 @@ current_markers = [
 ]
 
 # Set axis limits (adjust as needed)
-inf_lim = -1.2
-sup_lim = 1.2
+inf_lim = -5.2
+sup_lim = 5.2
 ax.set_xlim(inf_lim, sup_lim)
 ax.set_ylim(inf_lim, sup_lim)
 ax.set_zlim(inf_lim, sup_lim)

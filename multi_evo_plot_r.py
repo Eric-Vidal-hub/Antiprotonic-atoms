@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-
+from multi_constants import (RESULTS_DIR)
 
 # Output directory (optional, for saving)
-output_dir = os.path.join(os.path.dirname(__file__), 'He_atom_evo_output')
+output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
@@ -55,7 +55,7 @@ for i, modulus in enumerate(position_modulus):
     )
 plt.xlabel(r'$t$ (a.u.)')
 plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
-plt.ylim(0, 1)
+# plt.ylim(-1, 1)
 plt.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time.svg'))
