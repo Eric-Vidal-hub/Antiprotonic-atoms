@@ -20,7 +20,7 @@ MAX_E = 3.0           # Maximum initial energy (a.u.)
 N_STEP = 16           # Number of energy steps
 BMAX_0 = 3.0            # Maximum impact parameter (a.u.)
 # If True, it determines B_MAX based on initial energy
-AUTO_BMAX = False
+AUTO_BMAX = True
 THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
@@ -30,8 +30,8 @@ TRAJ_SAVED = True
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-DIRECTORY_ATOM = '/scratch/vym17xaj/HPC_results_gs_with_previous_z_as_ic/' \
+DIRECTORY_ATOM = '/scratch/vym17xaj/GS_alpha_HPC/' \
                 + '02_He_02e.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'HPC_dynamics_R0_{:.1f}_Ntraj_{:d}'.format(XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_R0_{:.1f}_Ntraj_{:d}_HPC'.format(XPBAR, int(N_TRAJ))

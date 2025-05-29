@@ -18,8 +18,8 @@ N_STEP = 100           # Number of energy steps
 # LOADING THE GS ATOM
 # Define the directory and file name
 FILENAME = '02_He_02e'
-DIRECTORY_ATOM = 'HPC_results_gs_with_alpha_modifying/' \
+DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'EVO_{}_TIME_{:d}'.format(FILENAME, int(T_MAX))
+RESULTS_DIR = 'EVO_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))

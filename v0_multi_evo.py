@@ -151,10 +151,9 @@ print(f"Number of protons (Z): {ZZ}, Number of electrons: {e_num}")
 
 # ATOM RANDOM ORIENTATION
 # Randomize the angles
-# theta_rnd = np.pi * np.random.random()
-# phi_rnd = 2 * np.pi * np.random.random()
-theta_rnd = 0
-phi_rnd = 0
+theta_rnd = np.pi * np.random.random()
+phi_rnd = 2 * np.pi * np.random.random()
+
 # Convert to Cartesian coordinates
 rx, ry, rz, px, py, pz = convert_to_cartesian(
     r0, theta_r + theta_rnd, phi_r + phi_rnd,
