@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=249G
 #SBATCH --time=30:00:00
-#SBATCH -p Haswell
+#SBATCH -p haswell-256
 
 module load anaconda3/latest
 
