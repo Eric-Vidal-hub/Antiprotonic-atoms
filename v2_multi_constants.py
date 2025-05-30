@@ -17,7 +17,7 @@ N_STEP = 100           # Number of energy steps
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+FILENAME = '01_H_01e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 
