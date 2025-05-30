@@ -57,9 +57,9 @@ def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA):
     f_pbar_e_sum = np.zeros(3)
 
     # --- FORCES AND DERIVATIVES FOR ELECTRONS ---
-    for ii in range(num_electrons):
-        ri = r_electrons[ii]
-        pi = p_electrons[ii]
+    for kk in range(num_electrons):
+        ri = r_electrons[kk]
+        pi = p_electrons[kk]
         ri_norm = np.linalg.norm(ri)
         pi_norm = np.linalg.norm(pi)
 
@@ -83,35 +83,40 @@ def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA):
 
         # T-DER of r_i: dr_i/dt = dH/dp_i
         dri_dt = pi * (1 - uu * exp_hei)
-        dr_dt_electrons_flat[3*ii:3*(ii+1)] = dri_dt
+        dr_dt_electrons_flat[3*kk:3*(kk+1)] = dri_dt
 
         # --- FORCES ON E MOMENTA ---
         # Force on electron i from the nucleus
         f_en = -ZZ / (ri_norm**3 + epsilon)
 
         # Force on electron i from antiproton
-        f_epbar = (r_pbar - ri) / (np.linalg.norm(r_pbar - ri)**3 + epsilon)
+        f_epbar = (ri - r_pbar) / (np.linalg.norm(r_pbar - ri)**3 + epsilon)
         
         # Force on electron i from other electrons
         f_ee_sum = np.zeros(3)
-        for jj in range(num_electrons):
-            if ii != jj:
-                r_ij = ri - r_electrons[jj]
-                norm_r_ij = np.linalg.norm(r_ij)
-                f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+        for ii in range(num_electrons):
+            for mm in range(ii + 1, num_electrons):
+                if kk == ii:
+                    r_ij = ri - r_electrons[mm]
+                    norm_r_ij = np.linalg.norm(r_ij)
+                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+                elif kk == mm:
+                    r_ij = ri - r_electrons[ii]
+                    norm_r_ij = np.linalg.norm(r_ij)
+                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
 
         # Heisenberg core contribution for electron i
         f_heisenberg_p = (2 * v_hei / (ri_norm**2 + epsilon)) * (
             1 + 2 * ALPHA * hei_arg_exp
         )
         # T-DER p_i: dp_i/dt = -dH/dr_i
-        dp_dt_electrons_flat[3*ii:3*(ii+1)] = (
+        dp_dt_electrons_flat[3*kk:3*(kk+1)] = (
             ri * (f_en + f_heisenberg_p) + f_ee_sum + f_epbar
         )
 
         # --- FORCES AND DERIVATIVES FOR PBAR ---
         # Force of all electrons on the antiproton
-        f_pbar_e_sum += f_epbar
+        f_pbar_e_sum -= f_epbar
 
     # ITERATION ON ELECTRONS FINISHED
     r_pbar_norm = np.linalg.norm(r_pbar)
