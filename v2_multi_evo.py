@@ -1,4 +1,3 @@
-from math import e
 import numpy as np
 from scipy.integrate import solve_ivp
 import os

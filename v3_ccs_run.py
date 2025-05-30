@@ -18,15 +18,15 @@ Reads:
 Dependencies:
     numpy, pandas, scipy
 """
-import sys
 import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
-from v3_ccs_FMD_constants_HPC import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E,
+from v3_ccs_FMD_constants import (M_PBAR, ALPHA, XI_H, XI_P, MIN_E, MAX_E,
                                   N_STEP, N_TRAJ, T_MAX, BMAX_0, XPBAR,
                                   DIRECTORY_ATOM, TRAJ_SAVED, B1, B2, B3,
                                   AUTO_BMAX, THRESH_1, THRESH_2)
+from tqdm import tqdm
 
 
 # %% FUNCTIONS
@@ -193,18 +193,11 @@ def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
 
 # %% SIMULATION
 # DIRECTORY TO SAVE THE RESULTS
-DIRECTORY_PBAR = sys.argv[1]
-ID = int(sys.argv[2])
-
+RESULTS_DIR = 'results_pbar_capture'
+DIRECTORY_PBAR = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 if not os.path.exists(DIRECTORY_PBAR):
-    print('Directory not found.')
-    print('Create Directory...')
-    try:
-        os.mkdir(DIRECTORY_PBAR)
-    except FileExistsError:
-        print("Directory was already created by a different process!")
-else:
-    print('Directory exists!')
+    os.makedirs(DIRECTORY_PBAR)
+ID = 0
 
 # %% LOADING THE GS ATOM
 # Read the CSV file using the csv module
@@ -237,6 +230,7 @@ for row in MULTI_DATA:
 # Atomic number Z, number of protons
 ZZ = p_num
 M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
+print(f"Number of protons (Z): {ZZ}, Number of electrons: {e_num}, Reduced mass: {M_STAR:.3f} a.u.")
 
 # STORAGE PARAMETERS
 CROSS_DATA = []
@@ -261,7 +255,7 @@ if AUTO_BMAX:
 else:
     BMAX = BMAX_0
 
-for ii in range(N_TRAJ):
+for ii in tqdm(range(N_TRAJ), desc="Simulating trajectories"):
     # %% ATOM RANDOM ORIENTATION
     # Randomize the angles
     theta_rnd = np.pi * np.random.random()
@@ -295,7 +289,8 @@ for ii in range(N_TRAJ):
     sol = solve_ivp(
         compute_forces,
         (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA),
-        method='DOP853', rtol=1e-6, atol=1e-9
+        method='RK45', t_eval=np.linspace(0, T_MAX, 100),
+        rtol=1e-6, atol=1e-8, dense_output=True
     )
 
     # SOLUTION
@@ -349,7 +344,7 @@ for ii in range(N_TRAJ):
     #                                     / self.xi_p) ** 4)
     #             )
 
-    # COMPUTE ELECTRONS FINAL ENERGY and pbar term
+    # %% COMPUTE ELECTRONS FINAL ENERGY and e-pbar term
     bound_electrons = []
     E_electrons = []
     for ii in range(e_num):
@@ -363,13 +358,14 @@ for ii in range(N_TRAJ):
         kin_ei = norm_pf_ei**2 / 2.0
         nuc_ei = -ZZ / norm_rf_ei
         heisenberg_ei = (
-            (XI_H**2 / (4 * ALPHA * norm_rf_ei**2)) *
+            (XI_H / (4 * ALPHA * norm_rf_ei**2)) *
             np.exp(ALPHA * (1 - (norm_rf_ei *
                                  norm_pf_ei / XI_H)**4))
         )
         # Two body potentials
         ei_pbar = np.linalg.norm(rf_ei - rf_pbar)
         pot_pbar_ei = 1.0 / ei_pbar
+        # TWO-BODY POT PBAR-ELECTRON
         pair_pot_pbar += pot_pbar_ei
         # Coulomb potential for electron pairs and pbar
         pair_pot_ei = pot_pbar_ei
@@ -377,9 +373,9 @@ for ii in range(N_TRAJ):
         # Coulomb potential between electrons and Pauli terms
         # pauli_pot = 0.0  # Pauli exclusion constraint potential
         if e_num > 1:
-            for j in range(e_num):
-                if ii != j:
-                    rf_ej = rf_e[3 * j:3 * (j + 1)]
+            for jj in range(e_num):
+                if ii != jj:
+                    rf_ej = rf_e[3 * jj:3 * (jj + 1)]
                     delta_r = np.linalg.norm(rf_ei - rf_ej)
                     pair_pot_ei += 1.0 / delta_r
                     # For identical electrons
@@ -396,7 +392,7 @@ for ii in range(N_TRAJ):
         Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei  # + pauli_pot
         E_electrons.append(Ef_ei)
 
-        # CAPTURE CLASSIFICATION
+        # %% CAPTURE CLASSIFICATION
         bound_electrons.append(Ef_ei < 0)
 
     # Final energy of the antiproton
@@ -445,7 +441,7 @@ for ii in range(N_TRAJ):
     else:
         CAP_TYPE = 'none'
 
-    # SAVE INITIAL AND FINAL STATES
+    # %% SAVE INITIAL AND FINAL STATES
     INI_STATES.append((E0, L_init, CAP_TYPE))
     FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
 
