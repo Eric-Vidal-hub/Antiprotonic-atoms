@@ -345,7 +345,7 @@ def run_trajectory(ii):
     # %% INTEGRATION
     sol = solve_ivp(
         compute_forces,
-        (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA, XI_P, ALPHA_P, E_SPIN=e_spin),
+        (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN=e_spin),
         method='DOP853', rtol=1e-4, atol=1e-6
     )
 
@@ -377,82 +377,62 @@ def run_trajectory(ii):
     kin_pbar = norm_pf_pbar**2 / (2 * M_STAR)
     nuc_pbar = -ZZ / np.linalg.norm(rf_pbar)
     heisenberg_pbar = (
-        (XI_H**2 / (4 * ALPHA * M_STAR * norm_rf_pbar**2)) *
-        np.exp(ALPHA * (1 - (norm_rf_pbar * norm_pf_pbar / XI_H)**4))
+        (XI_H**2 / (4 * ALPHA_H * M_STAR * norm_rf_pbar**2)) *
+        np.exp(ALPHA_H * (1 - (norm_rf_pbar * norm_pf_pbar / XI_H)**4))
     )
     # Two body potentials
     pair_pot_pbar = 0.0  # Coulomb potential between electrons
-    # pauli_pot = 0.0  # Pauli exclusion constraint potential
-    # # Pauli term computation
-    # if e_num > 1:
-    #     for ii in range(e_num):
-    #         # Electron position and momentum
-    #         rf_ei = rf_e[3 * ii:3 * (ii + 1)]
-    #         delta_r = np.linalg.norm(rf_pbar - rf_ei)
-    #         For identical electrons
-    #         if e_spin[i] == pbar_spin:
-    #             pf_ei = pf_e[3 * i:3 * (i + 1)]
-    #             delta_p = np.linalg.norm(pf_pbar - pf_ei)
-    #             pauli_pot += (
-    #                 self.xi_p ** 2 / (4 * self.alpha * delta_r ** 2)
-    #             ) * np.exp(
-    #                 self.alpha * (1 - (delta_r * delta_p
-    #                                     / self.xi_p) ** 4)
-    #             )
 
     # COMPUTE ELECTRONS FINAL ENERGY and pbar term
     bound_electrons = []
     E_electrons = []
+
     for ii in range(e_num):
-        # Final position and momentum of the i-th electron
         rf_ei = rf_e[3 * ii:3 * (ii + 1)]
         pf_ei = pf_e[3 * ii:3 * (ii + 1)]
 
-        # Final energy of the i-th electron
         norm_rf_ei = np.linalg.norm(rf_ei)
         norm_pf_ei = np.linalg.norm(pf_ei)
         kin_ei = norm_pf_ei**2 / 2.0
         nuc_ei = -ZZ / norm_rf_ei
         heisenberg_ei = (
-            (XI_H**2 / (4 * ALPHA * norm_rf_ei**2)) *
-            np.exp(ALPHA * (1 - (norm_rf_ei *
-                                 norm_pf_ei / XI_H)**4))
+            (XI_H**2 / (4 * ALPHA_H * norm_rf_ei**2)) *
+            np.exp(ALPHA_H * (1 - (norm_rf_ei * norm_pf_ei / XI_H)**4))
         )
-        # Two body potentials
+
+        # Electron-antiproton Coulomb
         ei_pbar = np.linalg.norm(rf_ei - rf_pbar)
         pot_pbar_ei = 1.0 / ei_pbar
         pair_pot_pbar += pot_pbar_ei
-        # Coulomb potential for electron pairs and pbar
-        pair_pot_ei = pot_pbar_ei
 
-        # Coulomb potential between electrons and Pauli terms
-        # pauli_pot = 0.0  # Pauli exclusion constraint potential
+        # Electron-electron Coulomb and Pauli (sum only for j > ii to avoid double-counting)
+        pair_pot_ei = 0
+        pauli_pot = 0.0
         if e_num > 1:
-            for j in range(e_num):
-                if ii != j:
-                    rf_ej = rf_e[3 * j:3 * (j + 1)]
-                    delta_r = np.linalg.norm(rf_ei - rf_ej)
-                    pair_pot_ei += 1.0 / delta_r
-                    # For identical electrons
-                    # if e_spin[i] == e_spin[j]:
-                    #     pf_ej = pf_e[3 * j:3 * (j + 1)]
-                    #     delta_p = np.linalg.norm(pf_ei - pf_ej)
-                    #     pauli_pot += (
-                    #         self.xi_p **
-                    #         / (4 * self.alpha * delta_r ** 2)
-                    #     ) * np.exp(
-                    #         self.alpha * (1 - (delta_r * delta_p
-                    #                             / self.xi_p) ** 4)
-                    #     )
-        Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei  # + pauli_pot
-        E_electrons.append(Ef_ei)
+            for j in range(ii + 1, e_num):
+                rf_ej = rf_e[3 * j:3 * (j + 1)]
+                delta_r = np.linalg.norm(rf_ei - rf_ej)
+                pair_pot_ei += 1.0 / delta_r
+                # Pauli term for identical spins
+                if e_spin[ii] == e_spin[j]:
+                    pf_ej = pf_e[3 * j:3 * (j + 1)]
+                    delta_p = np.linalg.norm(pf_ei - pf_ej)
+                    uu_p = (delta_r * delta_p / XI_P)**2
+                    pauli_arg_exp_p = uu_p**2
+                    if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
+                        exp_pauli = 0.0
+                    elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
+                        exp_pauli = np.exp(300)
+                    else:
+                        exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
+                    pauli_pot += (XI_P**2 / (4 * ALPHA_P * delta_r**2)) * exp_pauli
 
-        # CAPTURE CLASSIFICATION
+        Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
+        E_electrons.append(Ef_ei)
         bound_electrons.append(Ef_ei < 0)
 
     # Final energy of the antiproton
-    Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar
-    # + heisenberg_pbar + pauli_pot
+    Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
     bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
 
     # Classify capture
