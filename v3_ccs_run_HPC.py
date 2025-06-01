@@ -295,7 +295,7 @@ for ii in range(N_TRAJ):
     sol = solve_ivp(
         compute_forces,
         (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA),
-        method='DOP853', rtol=1e-6, atol=1e-9
+        method='DOP853', rtol=1e-4, atol=1e-6
     )
 
     # SOLUTION

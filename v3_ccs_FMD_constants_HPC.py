@@ -31,7 +31,7 @@ TRAJ_SAVED = True
 # LOADING THE GS ATOM
 # Define the directory and file name
 DIRECTORY_ATOM = '/scratch/vym17xaj/GS_alpha_HPC/' \
-                + '02_He_02e.csv'
+                + '03_Li_03e.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
 RESULTS_DIR = 'CCS_R0_{:.1f}_Ntraj_{:d}_HPC'.format(XPBAR, int(N_TRAJ))
