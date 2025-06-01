@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+
 from v2_multi_constants import (RESULTS_DIR)
 
-def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA):
+def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     num_electrons = len(state) // 6
     r_e_flat = state[:3 * num_electrons]
     p_e_flat = state[3 * num_electrons:]
@@ -15,6 +16,7 @@ def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA):
     potential_energy_en = 0
     potential_energy_ee = 0
     potential_energy_heisenberg = 0
+    potential_energy_pauli = 0
 
     for ii in range(num_electrons):
         ri = r_electrons[ii]
@@ -26,30 +28,46 @@ def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA):
 
         potential_energy_en += -ZZ / (ri_norm + epsilon)
 
-        for jj in range(ii + 1, num_electrons):
-            r_ij = ri - r_electrons[jj]
-            norm_r_ij = np.linalg.norm(r_ij)
-            potential_energy_ee += 1.0 / (norm_r_ij + epsilon)
+        for mm in range(ii + 1, num_electrons):
+            r_im = ri - r_electrons[mm]
+            r_im_norm = np.linalg.norm(r_im)
+            potential_energy_ee += 1.0 / (r_im_norm + epsilon)
+            if E_SPIN[ii] == E_SPIN[mm]:
+                p_im = (pi - p_electrons[mm]) / 2
+                p_im_norm = np.linalg.norm(p_im)
+                uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                pauli_arg_exp_p = uu_p**2
+                # Cap the argument to prevent overflows or underflows
+                if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
+                    exp_pauli = 0.0
+                elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:  # exp(300) overflows
+                    exp_pauli = np.exp(300)
+                else:
+                    exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
+                potential_energy_pauli += (XI_P**2 / (4 * ALPHA_P * r_im_norm**2)) * exp_pauli
 
+        # Heisenberg potential
         if (ri_norm > epsilon and pi_norm > epsilon and
                 np.abs(XI_H) > epsilon):
             uu = (ri_norm * pi_norm / XI_H)**2
             hei_arg_exp = uu**2
-            if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -300:
+            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
                 exp_hei_val = 0.0
-            elif ALPHA * (1 - hei_arg_exp) > 300:
+            elif ALPHA_H * (1 - hei_arg_exp) > 300:
                 exp_hei_val = np.exp(300)
             else:
-                exp_hei_val = np.exp(ALPHA * (1 - hei_arg_exp))
+                exp_hei_val = np.exp(ALPHA_H * (1 - hei_arg_exp))
             potential_energy_heisenberg += (
-                (XI_H**2 / (4 * ALPHA * ri_norm**2 * MU)) *
+                (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) *
                 exp_hei_val
             )
+        
 
     total_energy = (kinetic_energy + potential_energy_en +
-                    potential_energy_ee + potential_energy_heisenberg)
+                    potential_energy_ee + potential_energy_heisenberg +
+                    potential_energy_pauli)
     return (total_energy, kinetic_energy, potential_energy_en,
-            potential_energy_ee, potential_energy_heisenberg)
+            potential_energy_ee, potential_energy_heisenberg, potential_energy_pauli)
 
 
 # Output directory (optional, for saving)
@@ -65,32 +83,42 @@ e_num = int(data['e_num'])
 MU = data['MU']
 ZZ = data['ZZ']
 XI_H = data['XI_H']
-ALPHA = data['ALPHA']
+ALPHA_H = data['ALPHA_H']
+XI_P = data['XI_P']
+ALPHA_P = data['ALPHA_P']
+# electrons spin, 0 for odd, 1 for even
+e_spin = np.zeros(e_num, dtype=int)
+# Set the spin of electrons based on their index
+for i in range(e_num):
+    e_spin[i] = i % 2  # 0 for odd, 1 for even
+
 epsilon = 1e-18  # Small constant to prevent division by zero
 
 # After sol = solve_ivp(...)
 energies = []
-ke_list, pe_en_list, pe_ee_list, pe_h_list = [], [], [], []
+ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
 initial_energy_components = calculate_total_energy(
-    y_arr[:, 0], MU, ZZ, XI_H, ALPHA
+    y_arr[:, 0], MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN=e_spin
 )
 E0 = initial_energy_components[0]
 print(f"Initial Total Energy: {E0:.6e}")
 print(f"  KE: {initial_energy_components[1]:.6e}, "
       f"PE_eN: {initial_energy_components[2]:.6e}, "
       f"PE_ee: {initial_energy_components[3]:.6e}, "
-      f"PE_H: {initial_energy_components[4]:.6e}")
+      f"PE_H: {initial_energy_components[4]:.6e}",
+      f"PE_P: {initial_energy_components[5]:.6e}")
 
 for i_step in range(len(t_arr)):
     current_state = y_arr[:, i_step]
-    E_tot, ke, pe_en, pe_ee, pe_h = calculate_total_energy(
-        current_state, MU, ZZ, XI_H, ALPHA
+    E_tot, ke, pe_en, pe_ee, pe_h, pe_p = calculate_total_energy(
+        current_state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN=e_spin
     )
     energies.append(E_tot)
     ke_list.append(ke)
     pe_en_list.append(pe_en)
     pe_ee_list.append(pe_ee)
     pe_h_list.append(pe_h)
+    pe_p_list.append(pe_p)
 
 energies = np.array(energies)
 relative_energy_error = ((energies - E0) / (np.abs(E0) + epsilon))
@@ -143,6 +171,7 @@ plt.plot(t_arr, ke_list, label='Kinetic E')
 plt.plot(t_arr, pe_en_list, label='PE e-N')
 plt.plot(t_arr, pe_ee_list, label='PE e-e')
 plt.plot(t_arr, pe_h_list, label='PE Heisenberg')
+plt.plot(t_arr, pe_p_list, label='PE Pauli')
 plt.plot(t_arr, energies, label='Total E', linestyle='--', color='black')
 plt.xlabel('Time (a.u.)')
 plt.ylabel('Energy Components (a.u.)')

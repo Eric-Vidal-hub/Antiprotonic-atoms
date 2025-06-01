@@ -1,8 +1,5 @@
 # Physical constants
 # Proton mass (a.u.)
-from re import A
-
-
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
 ALPHA_H = 5             # Hardness parameter for Heisenberg potential
 ALPHA_P = 5             # Hardness parameter for Pauli potential
@@ -16,7 +13,7 @@ XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
-T_MAX = 5.0       # Maximum simulation time (a.u.)
+T_MAX = 50.0       # Maximum simulation time (a.u.)
 N_STEP = 100           # Number of energy steps
 
 # LOADING THE GS ATOM

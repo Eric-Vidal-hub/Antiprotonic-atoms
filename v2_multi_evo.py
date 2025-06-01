@@ -53,13 +53,14 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN
                 exp_hei = np.exp(ALPHA_H * (1 - hei_arg_exp))
             v_hei = (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) * exp_hei
 
-        v_pauli = np.zeros(3)
+        # Pauli exclusion principle contribution
+        v_pauli_rr = np.zeros(3)
         for ii in range(num_electrons):
             for mm in range(ii + 1, num_electrons):
                 if E_SPIN[ii] == E_SPIN[mm]:
-                    if kk == ii:
-                        r_im = (ri - r_electrons[mm])
-                        p_im = (pi - p_electrons[mm]) / 2
+                    if kk == ii or kk == mm:
+                        r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
+                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
                         r_im_norm = np.linalg.norm(r_im)
                         p_im_norm = np.linalg.norm(p_im)
                         uu_p = (r_im_norm * p_im_norm / XI_P)**2
@@ -71,30 +72,12 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN
                             exp_pauli = np.exp(300)
                         else:
                             exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
-                        # v_hei_p = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
 
-                        v_pauli += p_im * uu_p * exp_pauli
+                        v_pauli_rr -= p_im * uu_p * exp_pauli
 
-                    if kk == mm:
-                        r_im = (ri - r_electrons[ii])
-                        p_im = (pi - p_electrons[ii]) / 2
-                        r_im_norm = np.linalg.norm(r_im)
-                        p_im_norm = np.linalg.norm(p_im)
-                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
-                        hei_arg_exp_p = uu_p**2
-                        # Cap the argument to prevent overflows or underflows
-                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
-                            exp_pauli = 0.0
-                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:  # exp(300) overflows
-                            exp_pauli = np.exp(300)
-                        else:
-                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
-                        # v_hei_p = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
-
-                        v_pauli += p_im * uu_p * exp_pauli
 
         # Time derivative of r_i: dr_i/dt = dH/dp_i
-        dri_dt = pi * (1 - (1 / MU) * uu * exp_hei)
+        dri_dt = pi * (1 - (1 / MU) * uu * exp_hei) + v_pauli_rr
         dr_dt_electrons_flat[3*kk:3*(kk+1)] = dri_dt
 
         # --- Forces for dp_i/dt = -dV/dr_i ---
@@ -108,8 +91,32 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN
         # Heisenberg potential force
         f_heisenberg_p = 2 * (v_hei / (ri_norm**2 + epsilon)) * (1 + 2 * ALPHA_H * hei_arg_exp)
 
+        # Pauli exclusion principle contribution
+        v_pauli_pp = np.zeros(3)
+        for ii in range(num_electrons):
+            for mm in range(ii + 1, num_electrons):
+                if kk == ii or kk == mm:
+                    r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
+                    r_im_norm = np.linalg.norm(r_im)
+                    # Ensure r_im_norm is not zero to avoid division by zero
+                    factor = (r_im / (r_im_norm**2 + epsilon))
+                    if E_SPIN[ii] == E_SPIN[mm]:
+                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
+                        p_im_norm = np.linalg.norm(p_im)
+                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                        hei_arg_exp_p = uu_p**2
+                        # Cap the argument to prevent overflows or underflows
+                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                            exp_pauli = 0.0
+                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
+                            exp_pauli = np.exp(300)
+                        else:
+                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                        v_pauli_rr = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                        v_pauli_pp += factor * 2 * v_pauli_rr * (1 + 2 * ALPHA_P * hei_arg_exp_p)
+
         # T-DER of p_i: dp_i/dt = -dH/dr_i
-        dp_dt_electrons_flat[3*kk:3*(kk+1)] = ri * (f_en + f_heisenberg_p) + f_ee_sum
+        dp_dt_electrons_flat[3*kk:3*(kk+1)] = ri * (f_en + f_heisenberg_p) + f_ee_sum + v_pauli_pp
 
     # Assemble the full derivative vector in the correct order
     derivatives = np.concatenate([
