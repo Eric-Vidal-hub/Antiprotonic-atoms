@@ -112,8 +112,8 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN
                             exp_pauli = np.exp(300)
                         else:
                             exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
-                        v_pauli_rr = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
-                        v_pauli_pp += factor * 2 * v_pauli_rr * (1 + 2 * ALPHA_P * hei_arg_exp_p)
+                        v_pauli_term = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                        v_pauli_pp += factor * 2 * v_pauli_term * (1 + 2 * ALPHA_P * hei_arg_exp_p)
 
         # T-DER of p_i: dp_i/dt = -dH/dr_i
         dp_dt_electrons_flat[3*kk:3*(kk+1)] = ri * (f_en + f_heisenberg_p) + f_ee_sum + v_pauli_pp

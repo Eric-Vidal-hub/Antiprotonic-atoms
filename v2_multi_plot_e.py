@@ -44,7 +44,7 @@ def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
                     exp_pauli = np.exp(300)
                 else:
                     exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                potential_energy_pauli += (XI_P**2 / (4 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                potential_energy_pauli += (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
 
         # Heisenberg potential
         if (ri_norm > epsilon and pi_norm > epsilon and
