@@ -1,13 +1,17 @@
 # Physical constants
 # Proton mass (a.u.)
+from re import A
+
+
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
-ALPHA = 5             # Hardness parameter
+ALPHA_H = 5             # Hardness parameter for Heisenberg potential
+ALPHA_P = 5             # Hardness parameter for Pauli potential
 XI_H = 1.000          # Tuning parameter for the Heisenberg potential
 XI_P = 2.767          # Tuning parameter for the Pauli potential
 
 # Scaling parameters according to alpha
-XI_H /= (1 + 1 / (2 * ALPHA))**0.5
-XI_P /= (1 + 1 / (2 * ALPHA))**0.5
+XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
+XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
@@ -17,7 +21,7 @@ N_STEP = 100           # Number of energy steps
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '01_H_01e'
+FILENAME = '03_Li_03e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 

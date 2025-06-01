@@ -3,11 +3,11 @@ from scipy.integrate import solve_ivp
 import os
 import csv
 import time
-from v2_multi_constants import (M_PBAR, ALPHA, XI_H, XI_P, T_MAX, N_STEP,
+from v2_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, T_MAX, N_STEP,
                              DIRECTORY_ATOM, RESULTS_DIR)
 
 
-def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
+def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     """
     Generalized force computation for an arbitrary number of electrons.
     Given state vector y = [r1(3), r2(3),
@@ -45,13 +45,53 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
             hei_arg_exp = uu**2
             # Cap the argument to prevent overflows or underflows
             # If hei_arg_exp is very small, exp_hei ~ exp(ALPHA)
-            if hei_arg_exp > 100 and ALPHA * (1 - hei_arg_exp) < -300:
+            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
                 exp_hei = 0.0
-            elif ALPHA * (1-hei_arg_exp) > 300:  # exp(300) overflows
+            elif ALPHA_H * (1-hei_arg_exp) > 300:  # exp(300) overflows
                 exp_hei = np.exp(300)
             else:
-                exp_hei = np.exp(ALPHA * (1 - hei_arg_exp))
-            v_hei = (XI_H**2 / (4 * ALPHA * ri_norm**2 * MU)) * exp_hei
+                exp_hei = np.exp(ALPHA_H * (1 - hei_arg_exp))
+            v_hei = (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) * exp_hei
+
+        v_pauli = np.zeros(3)
+        for ii in range(num_electrons):
+            for mm in range(ii + 1, num_electrons):
+                if E_SPIN[ii] == E_SPIN[mm]:
+                    if kk == ii:
+                        r_im = (ri - r_electrons[mm])
+                        p_im = (pi - p_electrons[mm]) / 2
+                        r_im_norm = np.linalg.norm(r_im)
+                        p_im_norm = np.linalg.norm(p_im)
+                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                        hei_arg_exp_p = uu_p**2
+                        # Cap the argument to prevent overflows or underflows
+                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                            exp_pauli = 0.0
+                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:  # exp(300) overflows
+                            exp_pauli = np.exp(300)
+                        else:
+                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                        # v_hei_p = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+
+                        v_pauli += p_im * uu_p * exp_pauli
+
+                    if kk == mm:
+                        r_im = (ri - r_electrons[ii])
+                        p_im = (pi - p_electrons[ii]) / 2
+                        r_im_norm = np.linalg.norm(r_im)
+                        p_im_norm = np.linalg.norm(p_im)
+                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                        hei_arg_exp_p = uu_p**2
+                        # Cap the argument to prevent overflows or underflows
+                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                            exp_pauli = 0.0
+                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:  # exp(300) overflows
+                            exp_pauli = np.exp(300)
+                        else:
+                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                        # v_hei_p = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+
+                        v_pauli += p_im * uu_p * exp_pauli
 
         # Time derivative of r_i: dr_i/dt = dH/dp_i
         dri_dt = pi * (1 - (1 / MU) * uu * exp_hei)
@@ -60,20 +100,13 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
         # --- Forces for dp_i/dt = -dV/dr_i ---
         f_en = -ZZ / (ri_norm**3 + epsilon)
 
-        f_ee_sum = np.zeros(3)
-        for ii in range(num_electrons):
-            for mm in range(ii + 1, num_electrons):
-                if kk == ii:
-                    r_ij = ri - r_electrons[mm]
-                    norm_r_ij = np.linalg.norm(r_ij)
-                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
-                elif kk == mm:
-                    r_ij = ri - r_electrons[ii]
-                    norm_r_ij = np.linalg.norm(r_ij)
-                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+        r_ij = ri - r_electrons
+        norm_r_ij = np.linalg.norm(r_ij, axis=1) + epsilon
+        mask = np.arange(num_electrons) != kk
+        f_ee_sum = np.sum(r_ij[mask] / norm_r_ij[mask][:, None]**3, axis=0)
 
         # Heisenberg potential force
-        f_heisenberg_p = 2 * (v_hei / (ri_norm**2 + epsilon)) * (1 + 2 * ALPHA * hei_arg_exp)
+        f_heisenberg_p = 2 * (v_hei / (ri_norm**2 + epsilon)) * (1 + 2 * ALPHA_H * hei_arg_exp)
 
         # T-DER of p_i: dp_i/dt = -dH/dr_i
         dp_dt_electrons_flat[3*kk:3*(kk+1)] = ri * (f_en + f_heisenberg_p) + f_ee_sum
@@ -83,7 +116,7 @@ def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA):
         dr_dt_electrons_flat,
         dp_dt_electrons_flat
     ])
-    print(f"t: {t}, derivatives: {derivatives}")
+    # print(f"t: {t}, derivatives: {derivatives}")
 
     return derivatives
 
@@ -181,19 +214,33 @@ t_eval = np.linspace(t_span[0], t_span[1], N_STEP)
 # Parameters
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
 MU = 1 / (1 + (1 / (2 * ZZ * M_PBAR)))  # Reduced mass (a.u.)
-ALPHA = 5.0
+ALPHA_H = 5.0
 XI_H = 1.0
-XI_H /= (1 + 1 / (2 * ALPHA))**0.5
+XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
 
 print(f"Reduced mass MU: {MU}, Heisenberg parameter XI_H: {XI_H}")
-# Number of electrons
+
+# electrons spin, 0 for odd, 1 for even
+e_spin = np.zeros(e_num, dtype=int)
+# Set the spin of electrons based on their index
+for i in range(e_num):
+    e_spin[i] = i % 2  # 0 for odd, 1 for even
+# Print the electron spins
+print(f"Electron spins: {e_spin}")
+# Ensure the initial state vector is a 1D array
+y0 = np.array(y0).flatten()
+# Print the initial state vector
+print(f"Initial state vector (y0): {y0}")
+# Print the initial position and momentum of electrons
+print(f"Initial position of electrons: {y0[:3 * e_num]}")
+print(f"Initial momentum of electrons: {y0[3 * e_num:]}")
 
 
 # INTEGRATION
 start_time = time.time()
 sol = solve_ivp(
-    hamiltonian_equations, t_span, y0, args=(MU, ZZ, XI_H, ALPHA),
-    t_eval=t_eval, dense_output=True, method='LSODA', rtol=1e-8, atol=1e-10)
+    hamiltonian_equations, t_span, y0, args=(MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),
+    t_eval=t_eval, dense_output=True, method='DOP853', rtol=1e-6, atol=1e-8)
 end_time = time.time()
 
 print(f"Simulation time: {end_time - start_time:.2f} seconds")
@@ -223,5 +270,8 @@ np.savez(
     MU=MU,
     ZZ=ZZ,
     XI_H=XI_H,
-    ALPHA=ALPHA
+    ALPHA_H=ALPHA_H,
+    XI_P=XI_P,
+    ALPHA_P=ALPHA_P,
+    T_MAX=T_MAX
 )
