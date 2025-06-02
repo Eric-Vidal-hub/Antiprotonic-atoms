@@ -250,6 +250,7 @@ plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 
 plt.tight_layout()
 plt.savefig('pbar_pot_ini.svg')
+plt.close()
 
 # --- Scenario 3: Potential for varying impact parameters ---
 # Let's say impact parameters b = [0.0, 1.0, 2.0, 3.0] (in a.u.)
@@ -326,3 +327,4 @@ inset_ax.text(0.2, 1.5, r'$b$', fontsize=18, va='center', ha='left')
 
 plt.tight_layout()
 plt.savefig('pbar_pot_b.svg')
+plt.close()
