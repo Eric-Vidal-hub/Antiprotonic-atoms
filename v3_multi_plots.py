@@ -6,6 +6,72 @@ from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v3_multi_constants import (RESULTS_DIR)
 import matplotlib.patches as patches
+import pandas as pd
+
+
+# --- Energy calculation and plots ---
+def calculate_energies(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
+    r_e_flat = state[:3 * e_num]
+    p_e_flat = state[3 * e_num:]
+    r_electrons = r_e_flat.reshape((e_num, 3))
+    p_electrons = p_e_flat.reshape((e_num, 3))
+    epsilon = 1e-18
+    kinetic_energy = 0
+    potential_energy_en = 0
+    potential_energy_ee = 0
+    potential_energy_heisenberg = 0
+    potential_energy_pauli = 0
+    e_spin = np.zeros(e_num, dtype=int)
+    for ii in range(e_num):
+        e_spin[ii] = ii % 2
+    for ii in range(e_num):
+        ri = r_electrons[ii]
+        pi = p_electrons[ii]
+        ri_norm = np.linalg.norm(ri)
+        pi_norm = np.linalg.norm(pi)
+        kinetic_energy += np.sum(pi**2) / (2 * MU)
+        potential_energy_en += -ZZ / (ri_norm + epsilon)
+        for mm in range(ii + 1, e_num):
+            r_im = ri - r_electrons[mm]
+            r_im_norm = np.linalg.norm(r_im)
+            potential_energy_ee += 1.0 / (r_im_norm + epsilon)
+            if e_spin[ii] == e_spin[mm]:
+                p_im = (pi - p_electrons[mm]) / 2
+                p_im_norm = np.linalg.norm(p_im)
+                uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                pauli_arg_exp_p = uu_p**2
+                if (pauli_arg_exp_p > 100 and
+                    ALPHA_P * (1 - pauli_arg_exp_p) < -300):
+                    exp_pauli = 0.0
+                elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
+                    exp_pauli = np.exp(300)
+                else:
+                    exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
+                potential_energy_pauli += (
+                    (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                )
+        if (ri_norm > epsilon and pi_norm > epsilon and
+            np.abs(XI_H) > epsilon):
+            uu = (ri_norm * pi_norm / XI_H)**2
+            hei_arg_exp = uu**2
+            if (hei_arg_exp > 100 and
+                ALPHA_H * (1 - hei_arg_exp) < -300):
+                exp_hei_val = 0.0
+            elif ALPHA_H * (1 - hei_arg_exp) > 300:
+                exp_hei_val = np.exp(300)
+            else:
+                exp_hei_val = np.exp(ALPHA_H * (1 - hei_arg_exp))
+            potential_energy_heisenberg += (
+                (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) *
+                exp_hei_val
+            )
+    total_energy = (kinetic_energy + potential_energy_en +
+                    potential_energy_ee + potential_energy_heisenberg +
+                    potential_energy_pauli)
+    return (total_energy, kinetic_energy, potential_energy_en,
+            potential_energy_ee, potential_energy_heisenberg,
+            potential_energy_pauli)
+
 
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['figure.figsize'] = (12, 8)
@@ -29,12 +95,11 @@ plt.rcParams['figure.facecolor'] = 'white'
 output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 csv_file = os.path.join(output_dir, 'trajectory_data.csv')
 
-# --- Parse CSV ---
+# %% --- Parse CSV ---
 with open(csv_file, newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
     lines = list(reader)
 
-# Find t_arr and y_arr blocks
 t_arr = None
 y_arr = []
 e_num = None
@@ -44,21 +109,18 @@ for idx, row in enumerate(lines):
     if row and row[0].strip() == 't_arr':
         t_arr = np.array([float(x) for x in lines[idx+1] if x.strip() != ''])
     if row and row[0].startswith('y['):
-        # All y_arr rows are consecutive after this
         y_start = idx
         break
 
-# Read y_arr
 y_arr = []
 for row in lines[y_start:]:
     if not row or not row[0].startswith('y['):
         break
     y_arr.append([float(x) for x in row[1:]])
-y_arr = np.array(y_arr)  # shape: (6*e_num, n_times)
-
+y_arr = np.array(y_arr)
 n_times = y_arr.shape[1]
 
-# --- Plot modulus of position vs time (_r) ---
+# %% --- Plot modulus of position vs time (_r) ---
 plt.figure(figsize=(12, 8))
 linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
 for i in range(e_num):
@@ -69,13 +131,15 @@ for i in range(e_num):
         linestyle=linestyles[i % len(linestyles)]
     )
 plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
-plt.legend()
+plt.ylabel(r'$r_i$ (a.u.)')
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time_r.svg'))
-plt.show()
 
-# --- Plot modulus of momentum vs time (_e) ---
+# %% --- Plot modulus of momentum vs time (_e) ---
 plt.figure(figsize=(12, 8))
 for i in range(e_num):
     p_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
@@ -85,22 +149,109 @@ for i in range(e_num):
         linestyle=linestyles[i % len(linestyles)]
     )
 plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$|\vec{p}_i|$ (a.u.)')
-plt.legend()
+plt.ylabel(r'$p_i$ (a.u.)')
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+# plt.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, 'momentum_modulus_vs_time_e.svg'))
-plt.show()
 
-# --- 3D Trajectory Animation (_gif) ---
+
+# %% --- Energy plot from y_arr and parameters in CSV ---
+params = {}
+with open(csv_file, newline='', encoding='utf-8') as f:
+    reader = csv.reader(f)
+    for row in reader:
+        if row and row[0] in [
+            'e_num', 'MU', 'ZZ', 'XI_H', 'ALPHA_H', 'XI_P', 'ALPHA_P']:
+            params[row[0]] = float(row[1])
+        if row and row[0].startswith('t_arr'):
+            break
+
+e_num = int(params['e_num'])
+MU = params['MU']
+ZZ = params['ZZ']
+XI_H = params['XI_H']
+ALPHA_H = params['ALPHA_H']
+XI_P = params['XI_P']
+ALPHA_P = params['ALPHA_P']
+# --- Compute all energies/components once ---
+energies = []
+ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
+for i_step in range(n_times):
+    current_state = y_arr[:, i_step]
+    E, ke, pe_en, pe_ee, pe_h, pe_p = calculate_energies(
+        current_state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
+    )
+    energies.append(E)
+    ke_list.append(ke)
+    pe_en_list.append(pe_en)
+    pe_ee_list.append(pe_ee)
+    pe_h_list.append(pe_h)
+    pe_p_list.append(pe_p)
+energies = np.array(energies)
+E0 = energies[0]
+relative_energy_error = np.abs((energies - E0) / (np.abs(E0) + 1e-18))
+
+# --- Energy plot ---
+plt.close('all')
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.plot(t_arr, energies, label='Total energy')
+plt.xlabel(r'$t$ (a.u.)')
+plt.ylabel(r'$E(t)$ (a.u.)')
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+
+plt.subplot(1, 2, 2)
+plt.plot(t_arr, relative_energy_error, label='|Relative energy error|')
+plt.xlabel('$t$ (a.u.)')
+plt.ylabel('|E(t) - E(0)| / |E(0)|')
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+plt.yscale('symlog', linthresh=1e-10)
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, 'energy_vs_time.svg'))
+
+
+# --- Energy components plot ---
+plt.close('all')
+plt.figure(figsize=(10, 7))
+plt.plot(t_arr, ke_list, label='Kinetic', linestyle='-', color='tab:blue')
+plt.plot(t_arr, pe_en_list, label='Electron-nucleus', linestyle='--', color='tab:orange')
+plt.plot(t_arr, pe_ee_list, label='Electron-electron', linestyle='-.', color='tab:green')
+plt.plot(t_arr, pe_h_list, label='Heisenberg', linestyle=':', color='tab:red')
+plt.plot(t_arr, pe_p_list, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
+plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=2)
+plt.xlabel(r'$t$ (a.u.)')
+plt.ylabel(r'$E_i(t)$ (a.u.)')
+plt.tick_params(
+    axis='both', which='both', direction='in', top=True, right=True
+)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
+
+
+# %% --- 3D Trajectory Animation (_gif) with time bar ---
 frame_step = 1
 frames = range(0, len(t_arr), frame_step)
 
 fig = plt.figure(figsize=(12, 8))
 ax = fig.add_subplot(111, projection='3d')
-lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0] for i in range(e_num)]
+lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0]
+         for i in range(e_num)]
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 current_markers = [
-    ax.plot([], [], [], marker='o', markersize=16, color=to_rgba(colors[i % len(colors)], 0.9),
+    ax.plot([], [], [], marker='o', markersize=16,
+            color=to_rgba(colors[i % len(colors)], 0.9),
             markeredgecolor='black', linestyle='None', zorder=5)[0]
     for i in range(e_num)
 ]
@@ -127,7 +278,8 @@ bar_ax.axis('off')
 bar_patch = patches.Rectangle((t_arr[0], 0), 0, 1, color='royalblue')
 bar_ax.add_patch(bar_patch)
 time_text = bar_ax.text(
-    0.5 * (t_arr[0] + t_arr[-1]), -1, '', va='center', ha='center', fontsize=18, color='black'
+    0.5 * (t_arr[0] + t_arr[-1]), -1, '', va='center', ha='center',
+    fontsize=18, color='black'
 )
 
 def init():
@@ -165,227 +317,73 @@ ani = animation.FuncAnimation(
 )
 gif_path = os.path.join(output_dir, 'trajectory_evolution.gif')
 ani.save(gif_path, writer='pillow', fps=25)
-plt.show()
 
-print("All plots saved in", output_dir)
-
-# --- Energy plot from y_arr and parameters in CSV ---
-
-# First, parse parameters from the CSV file (if not already loaded)
-params = {}
-with open(csv_file, newline='', encoding='utf-8') as f:
-    reader = csv.reader(f)
-    for row in reader:
-        if row and row[0] in ['e_num', 'MU', 'ZZ', 'XI_H', 'ALPHA_H', 'XI_P', 'ALPHA_P']:
-            params[row[0]] = float(row[1])
-        if row and row[0].startswith('t_arr'):
-            break
-
-e_num = int(params['e_num'])
-MU = params['MU']
-ZZ = params['ZZ']
-XI_H = params['XI_H']
-ALPHA_H = params['ALPHA_H']
-XI_P = params['XI_P']
-ALPHA_P = params['ALPHA_P']
-
-# Now parse t_arr and y_arr from the CSV
-with open(csv_file, newline='', encoding='utf-8') as f:
-    reader = csv.reader(f)
-    lines = list(reader)
-
-# Find t_arr and y_arr blocks
-for idx, row in enumerate(lines):
-    if row and row[0].strip() == 't_arr':
-        t_arr = np.array([float(x) for x in lines[idx+1] if x.strip() != ''])
-    if row and row[0].startswith('y['):
-        y_start = idx
-        break
-
-y_arr = []
-for row in lines[y_start:]:
-    if not row or not row[0].startswith('y['):
-        break
-    y_arr.append([float(x) for x in row[1:]])
-y_arr = np.array(y_arr)  # shape: (6*e_num, n_times)
-n_times = y_arr.shape[1]
-
-# Energy calculation function
-epsilon = 1e-18
-def calculate_total_energy(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
-    r_e_flat = state[:3 * e_num]
-    p_e_flat = state[3 * e_num:]
-    r_electrons = r_e_flat.reshape((e_num, 3))
-    p_electrons = p_e_flat.reshape((e_num, 3))
-    kinetic_energy = 0
-    potential_energy_en = 0
-    potential_energy_ee = 0
-    potential_energy_heisenberg = 0
-    potential_energy_pauli = 0
-    e_spin = np.zeros(e_num, dtype=int)
-    for ii in range(e_num):
-        e_spin[ii] = ii % 2  # 0 for odd, 1 for even
-
-    for ii in range(e_num):
-        ri = r_electrons[ii]
-        pi = p_electrons[ii]
-        ri_norm = np.linalg.norm(ri)
-        pi_norm = np.linalg.norm(pi)
-
-        kinetic_energy += np.sum(pi**2) / (2 * MU)
-        potential_energy_en += -ZZ / (ri_norm + epsilon)
-
-        for mm in range(ii + 1, e_num):
-            r_im = ri - r_electrons[mm]
-            r_im_norm = np.linalg.norm(r_im)
-            potential_energy_ee += 1.0 / (r_im_norm + epsilon)
-            if e_spin[ii] == e_spin[mm]:
-                p_im = (pi - p_electrons[mm]) / 2
-                p_im_norm = np.linalg.norm(p_im)
-                uu_p = (r_im_norm * p_im_norm / XI_P)**2
-                pauli_arg_exp_p = uu_p**2
-                if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
-                    exp_pauli = 0.0
-                elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
-                    exp_pauli = np.exp(300)
-                else:
-                    exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                potential_energy_pauli += (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
-
-        # Heisenberg potential
-        if (ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon):
-            uu = (ri_norm * pi_norm / XI_H)**2
-            hei_arg_exp = uu**2
-            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
-                exp_hei_val = 0.0
-            elif ALPHA_H * (1 - hei_arg_exp) > 300:
-                exp_hei_val = np.exp(300)
-            else:
-                exp_hei_val = np.exp(ALPHA_H * (1 - hei_arg_exp))
-            potential_energy_heisenberg += (
-                (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) *
-                exp_hei_val
-            )
-
-    total_energy = (kinetic_energy + potential_energy_en +
-                    potential_energy_ee + potential_energy_heisenberg +
-                    potential_energy_pauli)
-    return total_energy
-
-# Compute energies
-energies = []
-for i_step in range(n_times):
-    current_state = y_arr[:, i_step]
-    E_tot = calculate_total_energy(
-        current_state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
-    )
-    energies.append(E_tot)
-energies = np.array(energies)
-E0 = energies[0]
-relative_energy_error = ((energies - E0) / (np.abs(E0) + epsilon))
-
-# Plot total energy and relative error
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1)
-plt.plot(t_arr, energies, label='Total Energy')
-plt.xlabel('Time (a.u.)')
-plt.ylabel('Energy (a.u.)')
-plt.title('Total Energy vs. Time')
-plt.legend()
-plt.grid(True)
-
-plt.subplot(1, 2, 2)
-plt.plot(t_arr, relative_energy_error, label='Relative Energy Error')
-plt.xlabel('Time (a.u.)')
-plt.ylabel('(E(t) - E(0)) / E(0)')
-plt.title('Relative Energy Error vs. Time')
-plt.yscale('symlog', linthresh=1e-10)
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'energy_vs_time.svg'))
-plt.show()
-
-# --- Energy components plot ---
-ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
-e_spin = np.zeros(e_num, dtype=int)
+# %% --- Compute per-electron averages and deviations ---
+r_means, r_stds, p_means, p_stds = [], [], [], []
 for i in range(e_num):
-    e_spin[i] = i % 2  # 0 for odd, 1 for even
+    r_vec = y_arr[3*i:3*(i+1), :]
+    r_mod = np.linalg.norm(r_vec, axis=0)
+    r_means.append(np.mean(r_mod))
+    r_stds.append(np.std(r_mod))
+    p_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
+    p_mod = np.linalg.norm(p_vec, axis=0)
+    p_means.append(np.mean(p_mod))
+    p_stds.append(np.std(p_mod))
 
-def calculate_total_energy_components(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num, e_spin):
-    r_e_flat = state[:3 * e_num]
-    p_e_flat = state[3 * e_num:]
-    r_electrons = r_e_flat.reshape((e_num, 3))
-    p_electrons = p_e_flat.reshape((e_num, 3))
-    epsilon = 1e-18
-    kinetic_energy = 0
-    potential_energy_en = 0
-    potential_energy_ee = 0
-    potential_energy_heisenberg = 0
-    potential_energy_pauli = 0
+# --- Compute atom energy average and std ---
+E_mean = np.mean(energies)
+E_std = np.std(energies)
+# --- Compute component energy average and std ---
+ke_mean = np.mean(ke_list)
+ke_std = np.std(ke_list)
+pe_en_mean = np.mean(pe_en_list)
+pe_en_std = np.std(pe_en_list)
+pe_ee_mean = np.mean(pe_ee_list)
+pe_ee_std = np.std(pe_ee_list)
+pe_h_mean = np.mean(pe_h_list)
+pe_h_std = np.std(pe_h_list)
+pe_p_mean = np.mean(pe_p_list)
+pe_p_std = np.std(pe_p_list)
 
-    for ii in range(e_num):
-        ri = r_electrons[ii]
-        pi = p_electrons[ii]
-        ri_norm = np.linalg.norm(ri)
-        pi_norm = np.linalg.norm(pi)
-        kinetic_energy += np.sum(pi**2) / (2 * MU)
-        potential_energy_en += -ZZ / (ri_norm + epsilon)
-        for mm in range(ii + 1, e_num):
-            r_im = ri - r_electrons[mm]
-            r_im_norm = np.linalg.norm(r_im)
-            potential_energy_ee += 1.0 / (r_im_norm + epsilon)
-            if e_spin[ii] == e_spin[mm]:
-                p_im = (pi - p_electrons[mm]) / 2
-                p_im_norm = np.linalg.norm(p_im)
-                uu_p = (r_im_norm * p_im_norm / XI_P)**2
-                pauli_arg_exp_p = uu_p**2
-                if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
-                    exp_pauli = 0.0
-                elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
-                    exp_pauli = np.exp(300)
-                else:
-                    exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                potential_energy_pauli += (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
-        # Heisenberg potential
-        if (ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon):
-            uu = (ri_norm * pi_norm / XI_H)**2
-            hei_arg_exp = uu**2
-            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
-                exp_hei_val = 0.0
-            elif ALPHA_H * (1 - hei_arg_exp) > 300:
-                exp_hei_val = np.exp(300)
-            else:
-                exp_hei_val = np.exp(ALPHA_H * (1 - hei_arg_exp))
-            potential_energy_heisenberg += (
-                (XI_H**2 / (4 * ALPHA_H * ri_norm**2 * MU)) *
-                exp_hei_val
-            )
-    return (kinetic_energy, potential_energy_en, potential_energy_ee, potential_energy_heisenberg, potential_energy_pauli)
+# --- Print results ---
+for i in range(e_num):
+    print(f"Electron {i+1}: <|r|> = {r_means[i]:.8f}, std = {r_stds[i]:.8e}, "
+          f"<|p|> = {p_means[i]:.8f}, std = {p_stds[i]:.8e}")
+# Print component energies
+print(f"Component Energies (mean ± std):")
+print(f"Kinetic: {ke_mean:.8f} ± {ke_std:.8e}")
+print(f"Electron-Nucleus: {pe_en_mean:.8f} ± {pe_en_std:.8e}")
+print(f"Electron-Electron: {pe_ee_mean:.8f} ± {pe_ee_std:.8e}")
+print(f"Heisenberg: {pe_h_mean:.8f} ± {pe_h_std:.8e}")
+print(f"Pauli: {pe_p_mean:.8f} ± {pe_p_std:.8e}")
+print(f"Total Energy: {E_mean:.8f} ± {E_std:.8e}")
 
-for i_step in range(n_times):
-    current_state = y_arr[:, i_step]
-    ke, pe_en, pe_ee, pe_h, pe_p = calculate_total_energy_components(
-        current_state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num, e_spin
-    )
-    ke_list.append(ke)
-    pe_en_list.append(pe_en)
-    pe_ee_list.append(pe_ee)
-    pe_h_list.append(pe_h)
-    pe_p_list.append(pe_p)
+# --- Compute total time ---
+total_time = t_arr[-1] - t_arr[0]
+print(f"Total time: {total_time:.8f} a.u.")
 
-plt.figure(figsize=(10,7))
-plt.plot(t_arr, ke_list, label='Kinetic E')
-plt.plot(t_arr, pe_en_list, label='PE e-N')
-plt.plot(t_arr, pe_ee_list, label='PE e-e')
-plt.plot(t_arr, pe_h_list, label='PE Heisenberg')
-plt.plot(t_arr, pe_p_list, label='PE Pauli')
-plt.plot(t_arr, energies, label='Total E', linestyle='--', color='black')
-plt.xlabel('Time (a.u.)')
-plt.ylabel('Energy Components (a.u.)')
-plt.legend()
-plt.grid(True)
-plt.title('Energy Components vs. Time')
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
-plt.show()
+# --- Write to CSV ---
+# Write a header describing the element and time interval
+# List of elements by electron number (Z)
+elements = ["H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne"]
+element = elements[e_num - 1] if 1 <= e_num <= len(elements) else f"Z{e_num}"
+time_interval = total_time
+csv_out = os.path.join(
+    output_dir, f"{element}_averages_{int(round(time_interval))}au.csv"
+)
+with open(csv_out, "w", newline="") as f:
+    f.write(f"# Element: {element}, Time interval: {time_interval:.2f} a.u.\n")
+with open(csv_out, "w", newline="") as f:
+    f.write("electron,r_mean,r_std,p_mean,p_std\n")
+    for i in range(e_num):
+        f.write(f"{i+1},{r_means[i]},{r_stds[i]},{p_means[i]},{p_stds[i]}\n")
+    f.write("atom,E_mean,E_std\n")
+    f.write(f"total_time,{total_time}\n")
+    f.write("component,mean,std\n")
+    f.write(f"Kinetic,{ke_mean},{ke_std}\n")
+    f.write(f"Electron-Nucleus,{pe_en_mean},{pe_en_std}\n")
+    f.write(f"Electron-Electron,{pe_ee_mean},{pe_ee_std}\n")
+    f.write(f"Heisenberg,{pe_h_mean},{pe_h_std}\n")
+    f.write(f"Pauli,{pe_p_mean},{pe_p_std}\n")
+    f.write(f"Total Energy,{E_mean},{E_std}\n")
+print(f"Per-electron averages and deviations written to {csv_out}")

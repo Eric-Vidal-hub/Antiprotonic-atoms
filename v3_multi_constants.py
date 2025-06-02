@@ -13,12 +13,12 @@ XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
-T_MAX = 50.0       # Maximum simulation time (a.u.)
+T_MAX = 25000.0       # Maximum simulation time (a.u.)
 N_STEP = 100           # Number of energy steps
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+FILENAME = '03_Li_03e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 
