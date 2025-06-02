@@ -311,8 +311,6 @@ else:
     BMAX = BMAX_0
 
 def run_trajectory(ii):
-    trajectory_data_if_needed = None  # Default: not set
-
     # %% ATOM RANDOM ORIENTATION
     # Randomize the angles
     theta_rnd = np.pi * np.random.random()
@@ -439,58 +437,26 @@ def run_trajectory(ii):
     if bound_p:
         if any(bound_electrons):
             CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
-            # N_SINGLE += 1
         else:
             CAP_TYPE = 'double'
-            # N_DOUBLE += 1
-
-        if TRAJ_SAVED==0:
-            times = sol.t
-            # Extract radial distance of the antiproton
-            r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
-            # Extract radial distances of the electrons
-            electron_radial_distances = {}
-            for ii in range(e_num):
-                r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th e-
-                r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
-                electron_radial_distances[f'r_e{ii+1}'] = r_e_modulus
-
-            # Combine all trajectory data into a single dictionary
-            trajectory_data = [
-                {'time': t, 'r_p': r_p[idx], **{key: value[idx] for key, value in electron_radial_distances.items()}}
-                for idx, t in enumerate(times)
-            ]
-
-            # Save the trajectory data to a CSV file
-            trajectory_file = os.path.join(DIRECTORY_PBAR, f'trajectory_example_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv')
-            with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
-                fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
-                writer = csv.DictWriter(file, fieldnames=fieldnames)
-
-                writer.writeheader()
-                writer.writerows(trajectory_data)
-
-            trajectory_data_if_needed = trajectory_data  # Store for return
-            TRAJ_SAVED = 1
     else:
         CAP_TYPE = 'none'
 
     INI_STATE = (E0, L_init, CAP_TYPE)
     FINAL_STATE = (Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE)
-    return (CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE, trajectory_data_if_needed)
+    return (CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE)
 
-# Prepare lists to collect results
-results = []
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
     for result in executor.map(run_trajectory, range(N_TRAJ)):
-        CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE, trajectory_data = result
-        # ...append to your lists, update counters, etc...
+        CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE=result
+        # Store the results
+        INI_STATES.append(INI_STATE)
+        FINAL_STATES.append(FINAL_STATE)
         if CAP_TYPE == 'double':
             N_DOUBLE += 1
         elif CAP_TYPE.startswith('pbar_electrons'):
             N_SINGLE += 1
-        # ...rest of your aggregation...
 
 # COMPUTE CROSS SECTIONS
 CROSS_DATA.append([
