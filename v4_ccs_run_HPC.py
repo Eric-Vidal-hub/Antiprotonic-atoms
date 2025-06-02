@@ -439,10 +439,10 @@ def run_trajectory(ii):
     if bound_p:
         if any(bound_electrons):
             CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
-            N_SINGLE += 1
+            # N_SINGLE += 1
         else:
             CAP_TYPE = 'double'
-            N_DOUBLE += 1
+            # N_DOUBLE += 1
 
         if TRAJ_SAVED:
             times = sol.t
@@ -484,9 +484,13 @@ results = []
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
     for result in executor.map(run_trajectory, range(N_TRAJ)):
-        # Unpack and aggregate results as needed
         CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE, trajectory_data = result
         # ...append to your lists, update counters, etc...
+        if CAP_TYPE == 'double':
+            N_DOUBLE += 1
+        elif CAP_TYPE.startswith('pbar_electrons'):
+            N_SINGLE += 1
+        # ...rest of your aggregation...
 
 # COMPUTE CROSS SECTIONS
 CROSS_DATA.append([
