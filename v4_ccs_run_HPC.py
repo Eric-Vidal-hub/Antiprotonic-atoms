@@ -346,7 +346,7 @@ def run_trajectory(ii):
     sol = solve_ivp(
         compute_forces,
         (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),
-        method='DOP853', rtol=1e-4, atol=1e-6
+        method='DOP853', rtol=1e-6, atol=1e-8
     )
 
     # SOLUTION
