@@ -310,7 +310,7 @@ if AUTO_BMAX:
 else:
     BMAX = BMAX_0
 
-for ii in range(N_TRAJ):
+def run_trajectory(ii):
     # %% ATOM RANDOM ORIENTATION
     # Randomize the angles
     theta_rnd = np.pi * np.random.random()
@@ -404,17 +404,17 @@ for ii in range(N_TRAJ):
         pair_pot_pbar += pot_pbar_ei
 
         # Electron-electron Coulomb and Pauli (sum only for j > ii to avoid double-counting)
-        pair_pot_ei = 0.0
+        pair_pot_ei = 0
         pauli_pot = 0.0
         if e_num > 1:
-            for jj in range(ii + 1, e_num):
-                rf_ej = rf_e[3 * jj:3 * (jj + 1)]
+            for j in range(ii + 1, e_num):
+                rf_ej = rf_e[3 * j:3 * (j + 1)]
                 delta_r = np.linalg.norm(rf_ei - rf_ej)
                 pair_pot_ei += 1.0 / delta_r
                 # Pauli term for identical spins
-                if e_spin[ii] == e_spin[jj]:
-                    pf_ej = pf_e[3 * jj:3 * (jj + 1)]
-                    delta_p = np.linalg.norm(pf_ei - pf_ej) / 2
+                if e_spin[ii] == e_spin[j]:
+                    pf_ej = pf_e[3 * j:3 * (j + 1)]
+                    delta_p = np.linalg.norm(pf_ei - pf_ej)
                     uu_p = (delta_r * delta_p / XI_P)**2
                     pauli_arg_exp_p = uu_p**2
                     if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
@@ -423,12 +423,10 @@ for ii in range(N_TRAJ):
                         exp_pauli = np.exp(300)
                     else:
                         exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                    pauli_pot += (XI_P**2 / (2 * ALPHA_P * delta_r**2)) * exp_pauli
+                    pauli_pot += (XI_P**2 / (4 * ALPHA_P * delta_r**2)) * exp_pauli
 
         Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
         E_electrons.append(Ef_ei)
-
-        # %% CAPTURE CLASSIFICATION
         bound_electrons.append(Ef_ei < 0)
 
     # Final energy of the antiproton
@@ -439,48 +437,28 @@ for ii in range(N_TRAJ):
     if bound_p:
         if any(bound_electrons):
             CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
-            N_SINGLE += 1
         else:
             CAP_TYPE = 'double'
-            N_DOUBLE += 1
-
-        # Save the first capture trajectory
-        if TRAJ_SAVED:
-            times = sol.t
-            # Extract radial distance of the antiproton
-            r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
-            # Extract radial distances of the electrons
-            electron_radial_distances = {}
-            for ii in range(e_num):
-                r_e = sol.y[3 * ii:3 * (ii + 1), :]  # Positions of the i-th e-
-                r_e_modulus = np.linalg.norm(r_e, axis=0)  # Radial distance
-                electron_radial_distances[f'r_e{ii+1}'] = r_e_modulus
-
-            # Combine all trajectory data into a single dictionary
-            trajectory_data = [
-                {'time': t, 'r_p': r_p[idx], **{key: value[idx] for key, value in electron_radial_distances.items()}}
-                for idx, t in enumerate(times)
-            ]
-
-            # Save the trajectory data to a CSV file
-            trajectory_file = os.path.join(DIRECTORY_PBAR, f'trajectory_example_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv')
-            with open(trajectory_file, mode='w', newline='', encoding='utf-8') as file:
-                fieldnames = ['time', 'r_p'] + [f'r_e{i+1}' for i in range(e_num)]
-                writer = csv.DictWriter(file, fieldnames=fieldnames)
-
-                writer.writeheader()
-                writer.writerows(trajectory_data)
-
-            TRAJ_SAVED = False  # Save only the first capture trajectory
-            # If removed or True, it will save all capture trajectories
     else:
         CAP_TYPE = 'none'
 
-    # SAVE INITIAL AND FINAL STATES
-    INI_STATES.append((E0, L_init, CAP_TYPE))
-    FINAL_STATES.append((Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE))
+    INI_STATE = (E0, L_init, CAP_TYPE)
+    FINAL_STATE = (Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE)
+    return (CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE)
 
-# %% COMPUTE CROSS SECTIONS
+
+with concurrent.futures.ProcessPoolExecutor() as executor:
+    for result in executor.map(run_trajectory, range(N_TRAJ)):
+        CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE = result
+        # Store the results
+        INI_STATES.append(INI_STATE)
+        FINAL_STATES.append(FINAL_STATE)
+        if CAP_TYPE == 'double':
+            N_DOUBLE += 1
+        elif CAP_TYPE.startswith('pbar_electrons'):
+            N_SINGLE += 1
+
+# COMPUTE CROSS SECTIONS
 CROSS_DATA.append([
     E0,
     np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,

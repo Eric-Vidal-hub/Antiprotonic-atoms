@@ -27,7 +27,7 @@ THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
 # If 0, the code will save the first capture trajectory for each energy
-TRAJ_SAVED = 0
+TRAJ_SAVED = True
 
 # LOADING THE GS ATOM
 # Define the directory and file name
@@ -35,4 +35,4 @@ DIRECTORY_ATOM = '/scratch/vym17xaj/GS_alpha_HPC/' \
                 + '02_He_02e.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_02_He_02e_R0_{:.1f}_Ntraj_{:d}_HPC'.format(XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_02_He_02e_R0_{:.1f}_Ntraj_{:d}_HPC_Hei_pbar'.format(XPBAR, int(N_TRAJ))
