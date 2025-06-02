@@ -135,7 +135,7 @@ def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
 
         # Force on electron i from antiproton
         f_epbar = (ri - r_pbar) / (np.linalg.norm(r_pbar - ri)**3 + epsilon)
-        
+
         # Force on electron i from other electrons
         f_ee_sum = np.zeros(3)
         for ii in range(num_electrons):
@@ -444,7 +444,7 @@ def run_trajectory(ii):
             CAP_TYPE = 'double'
             # N_DOUBLE += 1
 
-        if TRAJ_SAVED:
+        if TRAJ_SAVED==0:
             times = sol.t
             # Extract radial distance of the antiproton
             r_p = np.linalg.norm(sol.y[-6:-3, :], axis=0)
@@ -471,7 +471,7 @@ def run_trajectory(ii):
                 writer.writerows(trajectory_data)
 
             trajectory_data_if_needed = trajectory_data  # Store for return
-            TRAJ_SAVED = False
+            TRAJ_SAVED = 1
     else:
         CAP_TYPE = 'none'
 

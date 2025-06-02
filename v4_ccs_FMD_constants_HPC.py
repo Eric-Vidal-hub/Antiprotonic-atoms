@@ -26,8 +26,8 @@ THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
-# If True, the code will save the first capture trajectory for each energy
-TRAJ_SAVED = True
+# If 0, the code will save the first capture trajectory for each energy
+TRAJ_SAVED = 0
 
 # LOADING THE GS ATOM
 # Define the directory and file name
