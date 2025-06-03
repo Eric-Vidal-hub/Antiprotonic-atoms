@@ -17,7 +17,7 @@ XPBAR = 10.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 100          # Number of trajectories per energy
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
 MIN_E = 0.01           # Minimum initial energy (a.u.)
-MAX_E = 1.5           # Maximum initial energy (a.u.)
+MAX_E = 2.5           # Maximum initial energy (a.u.)
 N_STEP = 16           # Number of energy steps
 BMAX_0 = 3.0            # Maximum impact parameter (a.u.)
 # If True, it determines B_MAX based on initial energy
@@ -26,13 +26,10 @@ THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
-# If 0, the code will save the first capture trajectory for each energy
-TRAJ_SAVED = True
-
 # LOADING THE GS ATOM
 # Define the directory and file name
 DIRECTORY_ATOM = '/scratch/vym17xaj/GS_alpha_HPC/' \
                 + '02_He_02e.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_02_He_02e_R0_{:.1f}_Ntraj_{:d}_HPC'.format(XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_02_He_02e_R0_{:.1f}_Ntraj_{:d}_HPC_speedup'.format(XPBAR, int(N_TRAJ))

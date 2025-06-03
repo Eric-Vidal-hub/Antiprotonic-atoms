@@ -3,10 +3,8 @@ Semiclassical Monte Carlo simulation of He + antiproton capture
 using the FMD method (Beck et al., Phys. Rev. A 48, 2779 (1993)).
 
 Produces:
- - Capture cross sections vs. initial energy (total, single, double).
+ - Capture cross sections vs. initial energy (total, partial, full).
     Outputs cross_sections.csv
- - Example trajectory radii vs. time.
-    Outputs trajectory_example.csv
  - Initial (E,L) distribution for capture events.
     Outputs initial_states.csv
  - Final (E,L) distribution after capture.
@@ -23,9 +21,9 @@ import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
-from v4_ccs_FMD_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_E, MAX_E,
+from v5_ccs_FMD_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_E, MAX_E,
                                   N_STEP, N_TRAJ, T_MAX, BMAX_0, XPBAR,
-                                  DIRECTORY_ATOM, TRAJ_SAVED, B1, B2, B3,
+                                  DIRECTORY_ATOM, B1, B2, B3,
                                   AUTO_BMAX, THRESH_1, THRESH_2)
 import concurrent.futures
 import time
@@ -39,9 +37,10 @@ def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     Given state vector y = [r1(3), r2(3), ...,
                             p1(3), p2(3), ..., r_pbar(3), p_pbar(3)].
     It returns derivatives dy/dt according to Hamilton's equations.
+    Vectorized and optimized for performance.
     """
     # Unpack state vector into shaped arrays for easier handling
-    num_electrons = (len(state) - 6) // 6  # Calculate the number of electrons
+    num_electrons = (len(state) - 6) // 6
     r_e_flat = state[:3 * num_electrons]
     p_e_flat = state[3 * num_electrons:6 * num_electrons]
     r_pbar = state[-6:-3]
@@ -50,154 +49,111 @@ def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     r_electrons = r_e_flat.reshape((num_electrons, 3))
     p_electrons = p_e_flat.reshape((num_electrons, 3))
 
-    dr_dt_electrons_flat = np.zeros(3 * num_electrons)
-    dp_dt_electrons_flat = np.zeros(3 * num_electrons)
+    dr_dt_electrons = np.zeros_like(r_electrons)
+    dp_dt_electrons = np.zeros_like(p_electrons)
 
-    # Small constant to prevent division by zero or extremely small norms
     epsilon = 1e-18
 
-    # Initialize force of all electrons on the antiproton
-    f_pbar_e_sum = np.zeros(3)
+    # Precompute norms
+    ri_norms = np.linalg.norm(r_electrons, axis=1) + epsilon
+    pi_norms = np.linalg.norm(p_electrons, axis=1) + epsilon
 
-    # --- FORCES AND DERIVATIVES FOR ELECTRONS ---
-    for kk in range(num_electrons):
-        ri = r_electrons[kk]
-        pi = p_electrons[kk]
-        ri_norm = np.linalg.norm(ri)
-        pi_norm = np.linalg.norm(pi)
+    # Heisenberg core for electrons (vectorized)
+    uu = (ri_norms * pi_norms / (XI_H + epsilon))**2
+    hei_arg_exp = uu**2
+    exp_hei = np.where(
+        (hei_arg_exp > 100) & (ALPHA_H * (1 - hei_arg_exp) < -300), 0.0,
+        np.where(ALPHA_H * (1 - hei_arg_exp) > 300, np.exp(300),
+                 np.exp(ALPHA_H * (1 - hei_arg_exp)))
+    )
+    v_hei = (XI_H**2 / (4 * ALPHA_H * ri_norms**2)) * exp_hei
 
-        # Heisenberg core contribution (ensure this part is numerically stable)
-        v_hei = 0.0
-        # Guard against issues if ri_norm or pi_norm is zero, or XI_H is zero
-        if ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon:
-            # The exponent term can become very large negatively or positively.
-            # np.exp can overflow or underflow.
-            uu = (ri_norm * pi_norm / XI_H)**2
-            hei_arg_exp = uu**2
-            # Cap the argument to prevent overflows or underflows
-            # If hei_arg_exp is very small, exp_hei ~ exp(ALPHA)
-            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
-                exp_hei = 0.0
-            elif ALPHA_H * (1-hei_arg_exp) > 300:  # exp(300) overflows
-                exp_hei = np.exp(300)
-            else:
-                exp_hei = np.exp(ALPHA_H * (1 - hei_arg_exp))
-            v_hei = (XI_H**2 / (4 * ALPHA_H * ri_norm**2)) * exp_hei
+    # Pauli exclusion (vectorized, but only for identical spins)
+    v_pauli_rr = np.zeros_like(r_electrons)
+    v_pauli_pp = np.zeros_like(r_electrons)
+    for ii in range(num_electrons):
+        for jj in range(ii + 1, num_electrons):
+            if E_SPIN[ii] == E_SPIN[jj]:
+                r_im = r_electrons[ii] - r_electrons[jj]
+                p_im = (p_electrons[ii] - p_electrons[jj]) / 2
+                r_im_norm = np.linalg.norm(r_im) + epsilon
+                p_im_norm = np.linalg.norm(p_im) + epsilon
+                uu_p = (r_im_norm * p_im_norm / (XI_P + epsilon))**2
+                hei_arg_exp_p = uu_p**2
+                if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                    exp_pauli = 0.0
+                elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
+                    exp_pauli = np.exp(300)
+                else:
+                    exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                # For dr/dt (Pauli force in momentum space)
+                v_pauli_rr[ii] -= p_im * uu_p * exp_pauli
+                v_pauli_rr[jj] += p_im * uu_p * exp_pauli
+                # For dp/dt (Pauli force in position space)
+                factor = r_im / (r_im_norm**2)
+                v_pauli_term = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                v_pauli_pp[ii] += factor * 2 * v_pauli_term * (1 + 2 * ALPHA_P * hei_arg_exp_p)
+                v_pauli_pp[jj] -= factor * 2 * v_pauli_term * (1 + 2 * ALPHA_P * hei_arg_exp_p)
 
-        # --- PAULI EXCLUSION PRINCIPLE CONTRIBUTION ---
-        v_pauli_rr = np.zeros(3)
-        v_pauli_pp = np.zeros(3)
-        for ii in range(num_electrons):
-            for mm in range(ii + 1, num_electrons):
-                if E_SPIN[ii] == E_SPIN[mm]:
-                    # For dr/dt (Pauli force in momentum space)
-                    if kk == ii or kk == mm:
-                        r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
-                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
-                        r_im_norm = np.linalg.norm(r_im)
-                        p_im_norm = np.linalg.norm(p_im)
-                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
-                        hei_arg_exp_p = uu_p**2
-                        # Cap the argument to prevent overflows or underflows
-                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
-                            exp_pauli = 0.0
-                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
-                            exp_pauli = np.exp(300)
-                        else:
-                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
-                        v_pauli_rr -= p_im * uu_p * exp_pauli
+    # dr_i/dt = dH/dp_i
+    dr_dt_electrons = p_electrons * (1 - uu[:, None] * exp_hei[:, None]) + v_pauli_rr
 
-                    # For dp/dt (Pauli force in position space)
-                    if kk == ii or kk == mm:
-                        r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
-                        r_im_norm = np.linalg.norm(r_im)
-                        factor = (r_im / (r_im_norm**2 + epsilon))
-                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
-                        p_im_norm = np.linalg.norm(p_im)
-                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
-                        hei_arg_exp_p = uu_p**2
-                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
-                            exp_pauli = 0.0
-                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
-                            exp_pauli = np.exp(300)
-                        else:
-                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
-                        v_pauli_term = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
-                        v_pauli_pp += factor * 2 * v_pauli_term * (1 + 2 * ALPHA_P * hei_arg_exp_p)
+    # Forces on electrons
+    # Nucleus force
+    f_en = -ZZ * r_electrons / (ri_norms[:, None]**3)
 
-        # T-DER of r_i: dr_i/dt = dH/dp_i
-        dri_dt = pi * (1 - uu * exp_hei) + v_pauli_rr
-        dr_dt_electrons_flat[3*kk:3*(kk+1)] = dri_dt
+    # Antiproton force
+    r_e_minus_pbar = r_electrons - r_pbar
+    r_e_minus_pbar_norms = np.linalg.norm(r_e_minus_pbar, axis=1) + epsilon
+    f_epbar = r_e_minus_pbar / (r_e_minus_pbar_norms[:, None]**3)
 
-        # --- FORCES ON E MOMENTA ---
-        # Force on electron i from the nucleus
-        f_en = -ZZ / (ri_norm**3 + epsilon)
+    # Electron-electron force (vectorized, sum over all pairs)
+    f_ee_sum = np.zeros_like(r_electrons)
+    for ii in range(num_electrons):
+        diff = r_electrons[ii] - r_electrons
+        norm_diff = np.linalg.norm(diff, axis=1) + epsilon
+        # Avoid self-interaction
+        mask = np.ones(num_electrons, dtype=bool)
+        mask[ii] = False
+        f_ee_sum[ii] = np.sum(diff[mask] / (norm_diff[mask][:, None]**3), axis=0)
 
-        # Force on electron i from antiproton
-        f_epbar = (ri - r_pbar) / (np.linalg.norm(r_pbar - ri)**3 + epsilon)
+    # Heisenberg core force for electrons
+    f_heisenberg_p = (2 * v_hei / (ri_norms**2)) * (1 + 2 * ALPHA_H * hei_arg_exp)
+    f_heisenberg_p = f_heisenberg_p[:, None] * r_electrons
 
-        # Force on electron i from other electrons
-        f_ee_sum = np.zeros(3)
-        for ii in range(num_electrons):
-            for mm in range(ii + 1, num_electrons):
-                if kk == ii:
-                    r_ij = ri - r_electrons[mm]
-                    norm_r_ij = np.linalg.norm(r_ij)
-                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
-                elif kk == mm:
-                    r_ij = ri - r_electrons[ii]
-                    norm_r_ij = np.linalg.norm(r_ij)
-                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+    # dp_i/dt = -dH/dr_i
+    dp_dt_electrons = f_en + f_heisenberg_p + f_ee_sum + f_epbar + v_pauli_pp
 
-        # Heisenberg core contribution for electron i
-        f_heisenberg_p = (2 * v_hei / (ri_norm**2 + epsilon)) * (
-            1 + 2 * ALPHA_H * hei_arg_exp
-        )
-        # T-DER p_i: dp_i/dt = -dH/dr_i
-        dp_dt_electrons_flat[3*kk:3*(kk+1)] = (
-            ri * (f_en + f_heisenberg_p) + f_ee_sum + f_epbar + v_pauli_pp
-        )
+    # --- Antiproton ---
+    r_pbar_norm = np.linalg.norm(r_pbar) + epsilon
+    p_pbar_norm = np.linalg.norm(p_pbar) + epsilon
+    uu_pbar = (r_pbar_norm * p_pbar_norm / (XI_H + epsilon))**2
+    hei_arg_exp_pbar = uu_pbar**2
+    if hei_arg_exp_pbar > 100 and ALPHA_H * (1 - hei_arg_exp_pbar) < -300:
+        exp_hei_pbar = 0.0
+    elif ALPHA_H * (1 - hei_arg_exp_pbar) > 300:
+        exp_hei_pbar = np.exp(300)
+    else:
+        exp_hei_pbar = np.exp(ALPHA_H * (1 - hei_arg_exp_pbar))
+    v_hei_pbar = (XI_H**2 / (4 * ALPHA_H * r_pbar_norm**2 * M_STAR)) * exp_hei_pbar
 
-        # --- FORCES AND DERIVATIVES FOR PBAR ---
-        # Force of all electrons on the antiproton
-        f_pbar_e_sum -= f_epbar
-
-    # ITERATION ON ELECTRONS FINISHED
-    r_pbar_norm = np.linalg.norm(r_pbar)
-    p_pbar_norm = np.linalg.norm(p_pbar)
-    # Heisenberg core contribution for antiproton
-    v_hei_pbar = 0.0
-    # Guard against issues if r_pbar_norm or p_pbar_norm is zero, or XI_H is zero
-    if r_pbar_norm > epsilon and p_pbar_norm > epsilon and np.abs(XI_H) > epsilon:
-        uu_pbar = (r_pbar_norm * p_pbar_norm / XI_H)**2
-        hei_arg_exp_pbar = uu_pbar**2
-        # Cap the argument to prevent overflows or underflows
-        if hei_arg_exp_pbar > 100 and ALPHA_H * (1 - hei_arg_exp_pbar) < -300:
-            exp_hei_pbar = 0.0
-        elif ALPHA_H * (1-hei_arg_exp_pbar) > 300:  # exp(300) overflows
-            exp_hei_pbar = np.exp(300)
-        else:
-            exp_hei_pbar = np.exp(ALPHA_H * (1 - hei_arg_exp_pbar))
-        v_hei_pbar = (XI_H**2 / (4 * ALPHA_H * r_pbar_norm**2 * M_STAR)) * exp_hei_pbar
-    # Time derivative of r_pbar: dr_pbar/dt = dH/dp_pbar
     dR_pbar_dt = (p_pbar / M_STAR) * (1 - uu_pbar * exp_hei_pbar)
 
-    # --- FORCES ON PBAR MOMENTUM ---
-    # Force on antiproton from nucleus (attractive V = -ZZ/||R_pbar||)
-    f_pbar_nuc = -ZZ / (r_pbar_norm**3 + epsilon)
+    # Force on antiproton from nucleus
+    f_pbar_nuc = -ZZ * r_pbar / (r_pbar_norm**3)
 
-    # Heisenberg core contribution for antiproton
-    f_hei_p_pbar = (2 * v_hei_pbar / (r_pbar_norm**2 + epsilon)) * (
-        1 + 2 * ALPHA_H * hei_arg_exp_pbar
-    )
+    # Heisenberg core force for antiproton
+    f_hei_p_pbar = (2 * v_hei_pbar / (r_pbar_norm**2)) * (1 + 2 * ALPHA_H * hei_arg_exp_pbar) * r_pbar
 
-    # T-DER P: dP/dt = -dH/dR
-    dP_pbar_dt = r_pbar * (f_pbar_nuc + f_hei_p_pbar) + f_pbar_e_sum
+    # Force of all electrons on the antiproton (sum of -f_epbar)
+    f_pbar_e_sum = -np.sum(f_epbar, axis=0)
 
-    # Assemble FULL DER vector
+    dP_pbar_dt = f_pbar_nuc + f_hei_p_pbar + f_pbar_e_sum
+
+    # Assemble derivatives
     derivatives = np.concatenate([
-        dr_dt_electrons_flat,
-        dp_dt_electrons_flat,
+        dr_dt_electrons.flatten(),
+        dp_dt_electrons.flatten(),
         dR_pbar_dt,
         dP_pbar_dt
     ])
@@ -296,8 +252,8 @@ FINAL_STATES = []
 ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # Initial energies (a.u.)
 E0 = ENERGIES[ID]
 # Initialize counters
-N_DOUBLE = 0
-N_SINGLE = 0
+N_FULL = 0
+N_PARTIAL = 0
 
 if AUTO_BMAX:
     # Determine b_max based on initial energy
@@ -427,6 +383,8 @@ def run_trajectory(ii):
 
         Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
         E_electrons.append(Ef_ei)
+
+        # %% CAPTURE CLASSIFICATION
         bound_electrons.append(Ef_ei < 0)
 
     # Final energy of the antiproton
@@ -436,41 +394,41 @@ def run_trajectory(ii):
     # Classify capture
     if bound_p:
         if any(bound_electrons):
-            CAP_TYPE = f'pbar_electrons_{len(bound_electrons)}'
+            CAP_TYPE = f'partial_{len(bound_electrons)}e'
         else:
-            CAP_TYPE = 'double'
+            CAP_TYPE = 'full'
     else:
         CAP_TYPE = 'none'
 
     INI_STATE = (E0, L_init, CAP_TYPE)
     FINAL_STATE = (Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE)
-    return (CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE)
+    return (CAP_TYPE, INI_STATE, FINAL_STATE)
 
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
     for result in executor.map(run_trajectory, range(N_TRAJ)):
-        CAP_TYPE, Ef_pbar, E_electrons, Lf_pbar, INI_STATE, FINAL_STATE = result
+        CAP_TYPE, INI_STATE, FINAL_STATE = result
         # Store the results
         INI_STATES.append(INI_STATE)
         FINAL_STATES.append(FINAL_STATE)
-        if CAP_TYPE == 'double':
-            N_DOUBLE += 1
-        elif CAP_TYPE.startswith('pbar_electrons'):
-            N_SINGLE += 1
+        if CAP_TYPE == 'full':
+            N_FULL += 1
+        elif CAP_TYPE.startswith('partial'):
+            N_PARTIAL += 1
 
 # COMPUTE CROSS SECTIONS
 CROSS_DATA.append([
     E0,
-    np.pi * BMAX**2 * (N_DOUBLE + N_SINGLE) / N_TRAJ,
-    np.pi * BMAX**2 * N_SINGLE / N_TRAJ,
-    np.pi * BMAX**2 * N_DOUBLE / N_TRAJ
+    np.pi * BMAX**2 * (N_FULL + N_PARTIAL) / N_TRAJ,
+    np.pi * BMAX**2 * N_PARTIAL / N_TRAJ,
+    np.pi * BMAX**2 * N_FULL / N_TRAJ
 ])
 
 # SAVE CSVs except trajectories which is just for the first capture
 with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
           encoding='utf-8') as file:
     writer = csv.writer(file)
-    writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
+    writer.writerow(['Energy', 'Sigma_total', 'Sigma_partial', 'Sigma_full'])
     writer.writerows(CROSS_DATA)
 
 with open(DIRECTORY_PBAR + f'initial_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
