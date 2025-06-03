@@ -4,9 +4,10 @@ import os
 import csv
 from matplotlib import animation
 from matplotlib.colors import to_rgba
-from v3_multi_constants import (RESULTS_DIR)
+from v3_multi_constants import (
+    RESULTS_DIR, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS, PLOT_GIF
+)
 import matplotlib.patches as patches
-import pandas as pd
 
 
 # --- Energy calculation and plots ---
@@ -120,43 +121,45 @@ for row in lines[y_start:]:
 y_arr = np.array(y_arr)
 n_times = y_arr.shape[1]
 
-# %% --- Plot modulus of position vs time (_r) ---
-plt.figure(figsize=(12, 8))
-linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
-for i in range(e_num):
-    r_vec = y_arr[3*i:3*(i+1), :]
-    r_mod = np.linalg.norm(r_vec, axis=0)
-    plt.plot(
-        t_arr, r_mod, label=f'Electron {i+1}',
-        linestyle=linestyles[i % len(linestyles)]
+# --- Plot modulus of position vs time (_r) ---
+if PLOT_POSITION:
+    plt.figure(figsize=(12, 8))
+    linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
+    for i in range(e_num):
+        r_vec = y_arr[3*i:3*(i+1), :]
+        r_mod = np.linalg.norm(r_vec, axis=0)
+        plt.plot(
+            t_arr, r_mod, label=f'Electron {i+1}',
+            linestyle=linestyles[i % len(linestyles)]
+        )
+    plt.xlabel(r'$t$ (a.u.)')
+    plt.ylabel(r'$r_i$ (a.u.)')
+    plt.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
     )
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$r_i$ (a.u.)')
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time_r.svg'))
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time_r.svg'))
 
-# %% --- Plot modulus of momentum vs time (_e) ---
-plt.figure(figsize=(12, 8))
-for i in range(e_num):
-    p_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
-    p_mod = np.linalg.norm(p_vec, axis=0)
-    plt.plot(
-        t_arr, p_mod, label=f'Electron {i+1}',
-        linestyle=linestyles[i % len(linestyles)]
+# --- Plot modulus of momentum vs time (_e) ---
+if PLOT_MOMENTUM:
+    plt.figure(figsize=(12, 8))
+    for i in range(e_num):
+        p_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
+        p_mod = np.linalg.norm(p_vec, axis=0)
+        plt.plot(
+            t_arr, p_mod, label=f'Electron {i+1}',
+            linestyle=linestyles[i % len(linestyles)]
+        )
+    plt.xlabel(r'$t$ (a.u.)')
+    plt.ylabel(r'$p_i$ (a.u.)')
+    plt.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
     )
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$p_i$ (a.u.)')
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-# plt.legend()
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'momentum_modulus_vs_time_e.svg'))
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+    # plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'momentum_modulus_vs_time_e.svg'))
 
 
 # %% --- Energy plot from y_arr and parameters in CSV ---
@@ -196,127 +199,131 @@ E0 = energies[0]
 relative_energy_error = np.abs((energies - E0) / (np.abs(E0) + 1e-18))
 
 # --- Energy plot ---
-plt.close('all')
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1)
-plt.plot(t_arr, energies, label='Total energy')
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$E(t)$ (a.u.)')
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+if PLOT_ENERGY:
+    plt.close('all')
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.plot(t_arr, energies, label='Total energy')
+    plt.xlabel(r'$t$ (a.u.)')
+    plt.ylabel(r'$E(t)$ (a.u.)')
+    plt.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
+    )
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
 
-plt.subplot(1, 2, 2)
-plt.plot(t_arr, relative_energy_error, label='|Relative energy error|')
-plt.xlabel('$t$ (a.u.)')
-plt.ylabel('|E(t) - E(0)| / |E(0)|')
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.yscale('symlog', linthresh=1e-10)
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'energy_vs_time.svg'))
+    plt.subplot(1, 2, 2)
+    plt.plot(t_arr, relative_energy_error, label='|Relative energy error|')
+    plt.xlabel('$t$ (a.u.)')
+    plt.ylabel('|E(t) - E(0)| / |E(0)|')
+    plt.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
+    )
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+    plt.yscale('symlog', linthresh=1e-10)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'energy_vs_time.svg'))
 
 
 # --- Energy components plot ---
-plt.close('all')
-plt.figure(figsize=(10, 7))
-plt.plot(t_arr, ke_list, label='Kinetic', linestyle='-', color='tab:blue')
-plt.plot(t_arr, pe_en_list, label='Electron-nucleus', linestyle='--', color='tab:orange')
-plt.plot(t_arr, pe_ee_list, label='Electron-electron', linestyle='-.', color='tab:green')
-plt.plot(t_arr, pe_h_list, label='Heisenberg', linestyle=':', color='tab:red')
-plt.plot(t_arr, pe_p_list, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
-plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=2)
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$E_i(t)$ (a.u.)')
-plt.tick_params(
-    axis='both', which='both', direction='in', top=True, right=True
-)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
+if PLOT_COMPONENTS:
+    plt.close('all')
+    plt.figure(figsize=(10, 7))
+    plt.plot(t_arr, ke_list, label='Kinetic', linestyle='-', color='tab:blue')
+    plt.plot(t_arr, pe_en_list, label='Electron-nucleus', linestyle='--', color='tab:orange')
+    plt.plot(t_arr, pe_ee_list, label='Electron-electron', linestyle='-.', color='tab:green')
+    plt.plot(t_arr, pe_h_list, label='Heisenberg', linestyle=':', color='tab:red')
+    plt.plot(t_arr, pe_p_list, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
+    plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=2)
+    plt.xlabel(r'$t$ (a.u.)')
+    plt.ylabel(r'$E_i(t)$ (a.u.)')
+    plt.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
+    )
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
 
 
 # %% --- 3D Trajectory Animation (_gif) with time bar ---
-frame_step = 1
-frames = range(0, len(t_arr), frame_step)
+if PLOT_GIF:
+    # Use a smaller frame_step for smoother animation
+    frame_step = max(1, len(t_arr) // 1000)  # ~1000 frames max, adjust as needed
+    frames = range(0, len(t_arr), frame_step)
 
-fig = plt.figure(figsize=(12, 8))
-ax = fig.add_subplot(111, projection='3d')
-lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0]
-         for i in range(e_num)]
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-current_markers = [
-    ax.plot([], [], [], marker='o', markersize=16,
-            color=to_rgba(colors[i % len(colors)], 0.9),
-            markeredgecolor='black', linestyle='None', zorder=5)[0]
-    for i in range(e_num)
-]
-inf_lim = -5.2
-sup_lim = 5.2
-ax.set_xlim(inf_lim, sup_lim)
-ax.set_ylim(inf_lim, sup_lim)
-ax.set_zlim(inf_lim, sup_lim)
-ax.set_xlabel('x (a.u.)', labelpad=18)
-ax.set_ylabel('y (a.u.)', labelpad=24)
-ax.set_zlabel('z (a.u.)', labelpad=30)
-ax.tick_params(axis='z', pad=12)
-ax.zaxis.label.set_verticalalignment('bottom')
-ax.zaxis.set_label_coords(1.05, 0.5)
-ax.xaxis.set_label_coords(0.5, -0.12)
-ax.yaxis.set_label_coords(-0.15, 0.5)
-ax.legend()
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0]
+             for i in range(e_num)]
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    current_markers = [
+        ax.plot([], [], [], marker='o', markersize=16,
+                color=to_rgba(colors[i % len(colors)], 0.9),
+                markeredgecolor='black', linestyle='None', zorder=5)[0]
+        for i in range(e_num)
+    ]
+    inf_lim = -5.2
+    sup_lim = 5.2
+    ax.set_xlim(inf_lim, sup_lim)
+    ax.set_ylim(inf_lim, sup_lim)
+    ax.set_zlim(inf_lim, sup_lim)
+    ax.set_xlabel('x (a.u.)', labelpad=18)
+    ax.set_ylabel('y (a.u.)', labelpad=24)
+    ax.set_zlabel('z (a.u.)', labelpad=30)
+    ax.tick_params(axis='z', pad=12)
+    ax.zaxis.label.set_verticalalignment('bottom')
+    ax.zaxis.set_label_coords(1.05, 0.5)
+    ax.xaxis.set_label_coords(0.5, -0.12)
+    ax.yaxis.set_label_coords(-0.15, 0.5)
+    ax.legend()
 
-# Add a time bar above the plot
-bar_ax = fig.add_axes([0.15, 0.92, 0.7, 0.03])
-bar_ax.set_xlim(t_arr[0], t_arr[-1])
-bar_ax.set_ylim(0, 1)
-bar_ax.axis('off')
-bar_patch = patches.Rectangle((t_arr[0], 0), 0, 1, color='royalblue')
-bar_ax.add_patch(bar_patch)
-time_text = bar_ax.text(
-    0.5 * (t_arr[0] + t_arr[-1]), -1, '', va='center', ha='center',
-    fontsize=18, color='black'
-)
+    # Add a time bar above the plot
+    bar_ax = fig.add_axes([0.15, 0.92, 0.7, 0.03])
+    bar_ax.set_xlim(t_arr[0], t_arr[-1])
+    bar_ax.set_ylim(0, 1)
+    bar_ax.axis('off')
+    bar_patch = patches.Rectangle((t_arr[0], 0), 0, 1, color='royalblue')
+    bar_ax.add_patch(bar_patch)
+    time_text = bar_ax.text(
+        0.5 * (t_arr[0] + t_arr[-1]), -1, '', va='center', ha='center',
+        fontsize=18, color='black'
+    )
 
-def init():
-    for line in lines:
-        line.set_data([], [])
-        line.set_3d_properties([])
-    for marker in current_markers:
-        marker.set_data([], [])
-        marker.set_3d_properties([])
-    bar_patch.set_width(0)
-    time_text.set_text('')
-    return lines + current_markers + [bar_patch, time_text]
+    def init():
+        for line in lines:
+            line.set_data([], [])
+            line.set_3d_properties([])
+        for marker in current_markers:
+            marker.set_data([], [])
+            marker.set_3d_properties([])
+        bar_patch.set_width(0)
+        time_text.set_text('')
+        return lines + current_markers + [bar_patch, time_text]
 
-def animate(frame_idx):
-    frame = frames[frame_idx]
-    for i, line in enumerate(lines):
-        x = y_arr[3*i, :frame]
-        y = y_arr[3*i+1, :frame]
-        z = y_arr[3*i+2, :frame]
-        line.set_data(x, y)
-        line.set_3d_properties(z)
-        if frame > 0:
-            current_markers[i].set_data([x[-1]], [y[-1]])
-            current_markers[i].set_3d_properties([z[-1]])
-        else:
-            current_markers[i].set_data([], [])
-            current_markers[i].set_3d_properties([])
-    bar_patch.set_width(t_arr[frame] - t_arr[0])
-    time_text.set_text(f't = {t_arr[frame]:.2f} a.u.')
-    return lines + current_markers + [bar_patch, time_text]
+    def animate(frame_idx):
+        frame = frames[frame_idx]
+        for i, line in enumerate(lines):
+            x = y_arr[3*i, :frame]
+            y = y_arr[3*i+1, :frame]
+            z = y_arr[3*i+2, :frame]
+            line.set_data(x, y)
+            line.set_3d_properties(z)
+            if frame > 0:
+                current_markers[i].set_data([x[-1]], [y[-1]])
+                current_markers[i].set_3d_properties([z[-1]])
+            else:
+                current_markers[i].set_data([], [])
+                current_markers[i].set_3d_properties([])
+        bar_patch.set_width(t_arr[frame] - t_arr[0])
+        time_text.set_text(f't = {t_arr[frame]:.2f} a.u.')
+        return lines + current_markers + [bar_patch, time_text]
 
-ani = animation.FuncAnimation(
-    fig, animate, frames=len(frames), init_func=init,
-    interval=40, blit=True
-)
-gif_path = os.path.join(output_dir, 'trajectory_evolution.gif')
-ani.save(gif_path, writer='pillow', fps=25)
+    ani = animation.FuncAnimation(
+        fig, animate, frames=len(frames), init_func=init,
+        interval=1000 / 60, blit=True  # 60 FPS for smoothness
+    )
+    gif_path = os.path.join(output_dir, 'trajectory_evolution.gif')
+    ani.save(gif_path, writer='pillow', fps=60)  # Save at 60 FPS for smooth playback
 
 # %% --- Compute per-electron averages and deviations ---
 r_means, r_stds, p_means, p_stds = [], [], [], []

@@ -24,3 +24,10 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
 RESULTS_DIR = 'EVO_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
+
+# Plot control flags
+PLOT_POSITION = False
+PLOT_MOMENTUM = False
+PLOT_ENERGY = False
+PLOT_COMPONENTS = False
+PLOT_GIF = True
