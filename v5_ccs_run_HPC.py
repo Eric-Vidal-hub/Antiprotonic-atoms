@@ -27,7 +27,6 @@ from v5_ccs_FMD_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_
                                   AUTO_BMAX, THRESH_1, THRESH_2)
 import concurrent.futures
 import time
-from tqdm import tqdm
 
 
 start_time = time.time()
@@ -450,7 +449,7 @@ def run_trajectory(ii):
 
 
 with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
-    for result in tqdm(executor.map(run_trajectory, range(N_TRAJ)), total=N_TRAJ):
+    for result in executor.map(run_trajectory, range(N_TRAJ)), total=N_TRAJ:
         CAP_TYPE, INI_STATE, FINAL_STATE = result
         # Store the results
         INI_STATES.append(INI_STATE)

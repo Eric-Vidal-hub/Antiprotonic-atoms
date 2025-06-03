@@ -5,7 +5,8 @@ import csv
 from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v3_multi_constants import (
-    RESULTS_DIR, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS, PLOT_GIF
+    RESULTS_DIR, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
+    PLOT_GIF, N_FRAMES, FPS
 )
 import matplotlib.patches as patches
 
@@ -80,7 +81,7 @@ plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.weight'] = 'normal'
 plt.rcParams['font.size'] = 26
 plt.rcParams['axes.labelsize'] = 26
-plt.rcParams['legend.fontsize'] = 20
+plt.rcParams['legend.fontsize'] = 16
 plt.rcParams['xtick.major.size'] = 10
 plt.rcParams['xtick.major.width'] = 2
 plt.rcParams['ytick.major.size'] = 10
@@ -229,18 +230,18 @@ if PLOT_COMPONENTS:
     plt.close('all')
     plt.figure(figsize=(10, 7))
     plt.plot(t_arr, ke_list, label='Kinetic', linestyle='-', color='tab:blue')
-    plt.plot(t_arr, pe_en_list, label='Electron-nucleus', linestyle='--', color='tab:orange')
-    plt.plot(t_arr, pe_ee_list, label='Electron-electron', linestyle='-.', color='tab:green')
+    plt.plot(t_arr, pe_en_list, label=r'$e^-$-nucleus', linestyle='--', color='tab:orange')
+    plt.plot(t_arr, pe_ee_list, label=r'$e^-$-$e^-$', linestyle='-.', color='tab:green')
     plt.plot(t_arr, pe_h_list, label='Heisenberg', linestyle=':', color='tab:red')
     plt.plot(t_arr, pe_p_list, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
-    plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=2)
+    plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=3)
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'$E_i(t)$ (a.u.)')
     plt.tick_params(
         axis='both', which='both', direction='in', top=True, right=True
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    plt.legend(loc='best')
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
 
@@ -248,7 +249,7 @@ if PLOT_COMPONENTS:
 # %% --- 3D Trajectory Animation (_gif) with time bar ---
 if PLOT_GIF:
     # Use a smaller frame_step for smoother animation
-    frame_step = max(1, len(t_arr) // 1000)  # ~1000 frames max, adjust as needed
+    frame_step = max(1, len(t_arr) // N_FRAMES)  # adjust as needed
     frames = range(0, len(t_arr), frame_step)
 
     fig = plt.figure(figsize=(12, 8))
@@ -320,10 +321,10 @@ if PLOT_GIF:
 
     ani = animation.FuncAnimation(
         fig, animate, frames=len(frames), init_func=init,
-        interval=1000 / 60, blit=True  # 60 FPS for smoothness
+        interval=N_FRAMES / FPS, blit=True  # 60 FPS for smoothness
     )
     gif_path = os.path.join(output_dir, 'trajectory_evolution.gif')
-    ani.save(gif_path, writer='pillow', fps=60)  # Save at 60 FPS for smooth playback
+    ani.save(gif_path, writer='pillow', fps=FPS)  # Save at 60 FPS for smooth playback
 
 # %% --- Compute per-electron averages and deviations ---
 r_means, r_stds, p_means, p_stds = [], [], [], []

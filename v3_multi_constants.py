@@ -14,10 +14,11 @@ print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
-N_STEP = 100           # Number of energy steps
+N_STEP = 10000       # Number of evaluation time steps
 
 # LOADING THE GS ATOM
 # Define the directory and file name
+# FILENAME = '02_He_02e'
 FILENAME = '03_Li_03e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
@@ -26,8 +27,10 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 RESULTS_DIR = 'EVO_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
-PLOT_POSITION = False
-PLOT_MOMENTUM = False
-PLOT_ENERGY = False
-PLOT_COMPONENTS = False
+PLOT_POSITION = True
+PLOT_MOMENTUM = True
+PLOT_ENERGY = True
+PLOT_COMPONENTS = True
 PLOT_GIF = True
+N_FRAMES = N_STEP  # Number of frames for the GIF
+FPS = 30  # Frames per second for the GIF
