@@ -267,7 +267,7 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
 
 # Define the directories
 hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                   'HPC_results_gs_with_alpha_modifying')
+                   'GS_alpha_HPC')
 output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
 
 # Specify the file range (optional)
