@@ -447,10 +447,11 @@ def run_trajectory(ii):
     FINAL_STATE = (Ef_pbar, E_electrons, Lf_pbar, CAP_TYPE)
     return (CAP_TYPE, INI_STATE, FINAL_STATE)
 
-
+N_CHECK = 0
 with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
     for result in executor.map(run_trajectory, range(N_TRAJ)):
         CAP_TYPE, INI_STATE, FINAL_STATE = result
+        N_CHECK += 1
         # Store the results
         INI_STATES.append(INI_STATE)
         FINAL_STATES.append(FINAL_STATE)
@@ -458,6 +459,12 @@ with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
             N_FULL += 1
         elif CAP_TYPE.startswith('partial'):
             N_PARTIAL += 1
+
+print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. "
+      f"with {N_FULL} full captures and {N_PARTIAL} partial captures.")
+# print whether N_CHECK is equal to N_TRAJ
+if N_CHECK != N_TRAJ:
+    print(f"Warning: Expected {N_TRAJ} trajectories, but processed {N_CHECK}.")
 
 # COMPUTE CROSS SECTIONS
 CROSS_DATA.append([
