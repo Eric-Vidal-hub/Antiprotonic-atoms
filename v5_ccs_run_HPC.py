@@ -449,7 +449,7 @@ def run_trajectory(ii):
 
 
 with concurrent.futures.ProcessPoolExecutor(max_workers=16) as executor:
-    for result in executor.map(run_trajectory, range(N_TRAJ)), total=N_TRAJ:
+    for result in executor.map(run_trajectory, range(N_TRAJ)):
         CAP_TYPE, INI_STATE, FINAL_STATE = result
         # Store the results
         INI_STATES.append(INI_STATE)
