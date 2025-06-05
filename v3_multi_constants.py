@@ -18,9 +18,13 @@ N_STEP = 1000       # Number of evaluation time steps
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+# FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+# DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+#                 + FILENAME + '.csv'
+FILENAME = '02_He_03e'
+# FILENAME = '03_Li_04e'
+DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
