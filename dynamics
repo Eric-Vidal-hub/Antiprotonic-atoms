@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH --array=0-15
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=12
 #SBATCH --mem=249G
 #SBATCH --time=30:00:00
-#SBATCH -p epyc-256
+#SBATCH -p cpuidle
 
 module load anaconda3/latest
 
@@ -13,7 +13,7 @@ source activate ~/.conda/envs/hiwi-polaron
 cd ~/Antiprotonic-atoms/
 
 # Create a per-job output directory:
-OUTDIR="/scratch/vym17xaj/CCS_03_Li_03e_R0_10.0_Ntraj_200_HPC/"
+OUTDIR="/scratch/vym17xaj/CCS_03_Li_03e_R0_10.0_Ntraj_200_more_HPC/"
 
 # Run the Python script, passing OUTDIR and the array ID
 python v5_ccs_run_HPC.py $OUTDIR $SLURM_ARRAY_TASK_ID

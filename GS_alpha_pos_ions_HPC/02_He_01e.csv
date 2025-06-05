@@ -1,0 +1,2 @@
+p_num,e_num,message,time_taken,ground_state_energy,kinetic_energy,nuclear_potential,heisenberg_potential,pair_potential,pauli_potential,optimal_configuration
+2,1,Converged after 1 iterations,0.074,-2.000,1.818,-4.000,0.182,0.000,0.000,[0.50000006 1.19442013 5.80092717 1.90692531 1.19442013 5.80092717]

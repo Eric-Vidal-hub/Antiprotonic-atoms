@@ -22,9 +22,13 @@ N_STEP = 1000       # Number of evaluation time steps
 # FILENAME = '03_Li_03e'
 # DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 #                 + FILENAME + '.csv'
-FILENAME = '02_He_03e'
-# FILENAME = '03_Li_04e'
-DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
+# FILENAME = '02_He_03e'
+
+# DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
+                # + FILENAME + '.csv'
+# FILENAME = '02_He_01e'
+FILENAME = '03_Li_02e'
+DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
