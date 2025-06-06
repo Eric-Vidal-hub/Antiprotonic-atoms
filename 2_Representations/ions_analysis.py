@@ -81,59 +81,72 @@ for Z_idx, Z in enumerate(ELEMENTS_Z):
         print(f"Skipping cation for {element_symbol} (Z={Z}) as it would have < 0 electrons.")
 
 
-# --- Plotting ---
-plt.style.use('seaborn-v0_8-whitegrid')
-plt.rcParams['font.size'] = 12
-plt.rcParams['axes.labelsize'] = 14
-plt.rcParams['xtick.labelsize'] = 10
-plt.rcParams['ytick.labelsize'] = 10
-plt.rcParams['legend.fontsize'] = 12
+# --- Matplotlib style to match v3_multi_plots.py ---
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = 26
+plt.rcParams['axes.labelsize'] = 26
+plt.rcParams['legend.fontsize'] = 16
+plt.rcParams['xtick.major.size'] = 10
+plt.rcParams['xtick.major.width'] = 2
+plt.rcParams['ytick.major.size'] = 10
+plt.rcParams['ytick.major.width'] = 2
+plt.rcParams['lines.linewidth'] = 3
+plt.rcParams['grid.linestyle'] = '--'
+plt.rcParams['grid.linewidth'] = 1
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+plt.rcParams['axes.linewidth'] = 2
+plt.rcParams['figure.facecolor'] = 'white'
 
-
-# Plot 1: E_neutral - E_anion
+# --- Plot 1: E_neutral - E_anion ---
 if delta_E_anion:
-    fig1, ax1 = plt.subplots(figsize=(15, 7))
+    plt.close('all')
+    fig1, ax1 = plt.subplots(figsize=(12, 8))
     colors_anion = ['green' if val > 0 else 'red' for val in delta_E_anion]
-    bars1 = ax1.bar(processed_symbols_anion, delta_E_anion, color=colors_anion)
+    # Use markers instead of bars
+    ax1.plot(processed_symbols_anion, delta_E_anion, 
+             marker='o', linestyle='None', markersize=12, 
+             color='black', markerfacecolor='none')
+    for i, val in enumerate(delta_E_anion):
+        ax1.plot(processed_symbols_anion[i], val, marker='o', 
+                 markersize=12, color=colors_anion[i])
     ax1.set_xlabel('Element (Z)')
-    ax1.set_ylabel(r'$E_{neutral}(Z) - E_{anion}(Z, e=Z+1)$ [a.u.]')
-    ax1.set_title('Energy Difference: Neutral vs. Anion (FMD Model)')
+    ax1.set_ylabel(r'$E_{\mathrm{neutral}} - E_{\mathrm{anion}}$ (a.u.)')
     ax1.axhline(0, color='black', linewidth=0.8)
-    ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
-    
-    # Add text labels on bars
-    for bar in bars1:
-        yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2.0, yval + (0.05 * np.sign(yval) if yval != 0 else 0.05), 
-                 f'{yval:.3f}', ha='center', va='bottom' if yval >=0 else 'top', fontsize=8)
-
+    ax1.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
+    )
+    ax1.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, 'deltaE_neutral_vs_anion.png'))
     plt.savefig(os.path.join(OUTPUT_DIR, 'deltaE_neutral_vs_anion.svg'))
     print(f"Plot 'deltaE_neutral_vs_anion.png' saved to {OUTPUT_DIR}")
-    plt.show()
 
-# Plot 2: E_neutral - E_cation
+# --- Plot 2: E_neutral - E_cation ---
 if delta_E_cation:
-    fig2, ax2 = plt.subplots(figsize=(15, 7))
+    plt.close('all')
+    fig2, ax2 = plt.subplots(figsize=(12, 8))
     colors_cation = ['green' if val > 0 else 'red' for val in delta_E_cation]
-    bars2 = ax2.bar(processed_symbols_cation, delta_E_cation, color=colors_cation)
+    ax2.plot(processed_symbols_cation, delta_E_cation, 
+             marker='o', linestyle='None', markersize=12, 
+             color='black', markerfacecolor='none')
+    for i, val in enumerate(delta_E_cation):
+        ax2.plot(processed_symbols_cation[i], val, marker='o', 
+                 markersize=12, color=colors_cation[i])
     ax2.set_xlabel('Element (Z)')
-    ax2.set_ylabel(r'$E_{neutral}(Z) - E_{cation}(Z, e=Z-1)$ [a.u.]')
-    ax2.set_title('Energy Difference: Neutral vs. Cation (FMD Model)')
+    ax2.set_ylabel(r'$E_{\mathrm{neutral}} - E_{\mathrm{cation}}$ (a.u.)')
     ax2.axhline(0, color='black', linewidth=0.8)
-    ax2.grid(True, axis='y', linestyle='--', alpha=0.7)
-
-    for bar in bars2:
-        yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2.0, yval + (0.05 * np.sign(yval) if yval != 0 else 0.05), 
-                 f'{yval:.3f}', ha='center', va='bottom' if yval >=0 else 'top', fontsize=8)
-
+    ax2.tick_params(
+        axis='both', which='both', direction='in', top=True, right=True
+    )
+    ax2.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, 'deltaE_neutral_vs_cation.png'))
     plt.savefig(os.path.join(OUTPUT_DIR, 'deltaE_neutral_vs_cation.svg'))
     print(f"Plot 'deltaE_neutral_vs_cation.png' saved to {OUTPUT_DIR}")
-    plt.show()
 
 if not delta_E_anion and not delta_E_cation:
     print("No data was processed to generate plots. Check file paths and data availability.")

@@ -2,7 +2,8 @@ import os
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
-from v5_ccs_FMD_constants_HPC import (RESULTS_DIR)
+import numpy as np
+from v5_ccs_FMD_constants_HPC import (RESULTS_DIR, N_TRAJ, THRESH_1, THRESH_2, B1, B2, B3, BMAX_0, AUTO_BMAX)
 
 
 plt.rcParams['mathtext.fontset'] = 'cm'
@@ -24,6 +25,20 @@ plt.rcParams['ytick.direction'] = 'in'
 plt.rcParams['axes.linewidth'] = 2
 plt.rcParams['figure.facecolor'] = 'white'
 
+PLOTS_DIR = os.path.join(RESULTS_DIR, "plots")
+os.makedirs(PLOTS_DIR, exist_ok=True)
+
+def get_bmax(E0):
+    if AUTO_BMAX:
+        if E0 > THRESH_1:
+            return B1
+        elif E0 > THRESH_2:
+            return B2
+        else:
+            return B3
+    else:
+        return BMAX_0
+
 # --- Plot 1: Capture cross sections vs. Energy ---
 cross_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'cross_sections_E0_*.csv')))
 if not cross_files:
@@ -35,12 +50,24 @@ else:
         cross_list.append(df)
     cross_all = pd.concat(cross_list, ignore_index=True)
     cross_all = cross_all.drop_duplicates(subset=['Energy']).sort_values('Energy')
+
+    cross_all['BMAX'] = cross_all['Energy'].apply(get_bmax)
+    cross_all['NR'] = (cross_all['Sigma_total'] / (np.pi * cross_all['BMAX']**2)) * N_TRAJ
+    cross_all['Ntot'] = N_TRAJ
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        sigma_err = cross_all['Sigma_total'] * np.sqrt(
+            (cross_all['Ntot'] - cross_all['NR']) / (cross_all['Ntot'] * cross_all['NR'])
+        )
+        sigma_err = np.nan_to_num(sigma_err, nan=0.0, posinf=0.0, neginf=0.0)
+
     plt.figure()
-    plt.plot(cross_all['Energy'], cross_all['Sigma_total'], 'o-', label='Total')
-    plt.plot(cross_all['Energy'], cross_all['Sigma_partial'], 's-', label='Partial')
-    plt.plot(cross_all['Energy'], cross_all['Sigma_full'], '^-', label='Full')
-    # plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single')
-    # plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double')
+    plt.errorbar(
+        cross_all['Energy'], cross_all['Sigma_total'], yerr=sigma_err,
+        fmt='o-', label='Total', capsize=5, color='tab:blue', ecolor='black'
+    )
+    plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single', color='tab:orange')
+    plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green')
     plt.xlabel(r'$E_{0}$ (a.u.)')
     plt.ylabel(r'$\sigma_{cap}$ (a₀²)')
     plt.legend()
@@ -49,7 +76,7 @@ else:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(PLOTS_DIR, f'{os.path.basename(RESULTS_DIR)}_cross_sections_vs_energy.svg'))
 
 # --- Plot 2: Initial (L_initial, E_initial) Distribution ---
 init_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'initial_states_E0_*.csv')))
@@ -73,7 +100,7 @@ else:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(PLOTS_DIR, f'{os.path.basename(RESULTS_DIR)}_initial_states_scatter.svg'))
 
 # --- Plot 3: Final (L_final, E_final) Distribution ---
 final_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'final_states_E0_*.csv')))
@@ -97,4 +124,4 @@ else:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(PLOTS_DIR, f'{os.path.basename(RESULTS_DIR)}_final_states_scatter.svg'))
