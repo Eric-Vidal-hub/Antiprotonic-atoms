@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=96G
 #SBATCH --time=30:00:00
-#SBATCH -p skylake
+#SBATCH -p Skylake
 
 module load anaconda3/latest
 
