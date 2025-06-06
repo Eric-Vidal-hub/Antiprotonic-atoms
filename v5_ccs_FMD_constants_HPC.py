@@ -39,7 +39,7 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 # FILENAME = '02_He_01e'
 # FILENAME = '03_Li_02e'
 # DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
-                + FILENAME + '.csv'
+                # + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
 RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_more_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
