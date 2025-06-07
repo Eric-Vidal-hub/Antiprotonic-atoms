@@ -3,7 +3,8 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from v5_ccs_FMD_constants_HPC import (RESULTS_DIR, N_TRAJ, THRESH_1, THRESH_2, B1, B2, B3, BMAX_0, AUTO_BMAX)
+from v5_ccs_FMD_constants_HPC import (RESULTS_DIR, N_TRAJ, THRESH_1, THRESH_2,
+                                      B1, B2, B3, BMAX_0, AUTO_BMAX, FILENAME)
 
 
 plt.rcParams['mathtext.fontset'] = 'cm'
@@ -66,8 +67,12 @@ else:
         cross_all['Energy'], cross_all['Sigma_total'], yerr=sigma_err,
         fmt='o-', label='Total', capsize=5, color='tab:blue', ecolor='black'
     )
-    plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single', color='tab:orange')
-    plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green')
+    if 'He' in FILENAME:
+        plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single', color='tab:orange')
+        plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green')
+    else:
+        plt.plot(cross_all['Energy'], cross_all['Sigma_partial'], 's-', label='Partial', color='tab:orange')
+        plt.plot(cross_all['Energy'], cross_all['Sigma_total'], '^-', label='Total', color='tab:green')
     plt.xlabel(r'$E_{0}$ (a.u.)')
     plt.ylabel(r'$\sigma_{cap}$ (a₀²)')
     plt.legend()
@@ -117,7 +122,7 @@ else:
         subset = final_all[final_all['type'] == cap_type]
         plt.scatter(subset['L_final'], subset['E_final'], label=cap_type, alpha=0.6)  # Swapped axes
     plt.xlabel(r'$L_{f}$ (a.u.)')  # Updated label
-    plt.ylabel(r'$L_{f}$ (a.u.)')  # Updated label
+    plt.ylabel(r'$E_{f}$ (a.u.)')  # Updated label
     plt.legend()
     plt.tick_params(
         axis='both', which='both', direction='in', top=True, right=True

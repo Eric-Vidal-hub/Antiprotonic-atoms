@@ -478,7 +478,10 @@ CROSS_DATA.append([
 with open(DIRECTORY_PBAR + f'cross_sections_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',
           encoding='utf-8') as file:
     writer = csv.writer(file)
-    writer.writerow(['Energy', 'Sigma_total', 'Sigma_partial', 'Sigma_full'])
+    if 'He' in DIRECTORY_ATOM:
+        writer.writerow(['Energy', 'Sigma_total', 'Sigma_single', 'Sigma_double'])
+    else:
+        writer.writerow(['Energy', 'Sigma_total', 'Sigma_partial', 'Sigma_full'])
     writer.writerows(CROSS_DATA)
 
 with open(DIRECTORY_PBAR + f'initial_states_E0_{E0:.3f}_R0_{XPBAR:.1f}.csv', mode='w', newline='',

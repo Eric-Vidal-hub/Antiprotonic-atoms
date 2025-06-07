@@ -14,7 +14,7 @@ print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
 XPBAR = 10.0           # Initial distance of antiproton (a.u.)
-N_TRAJ = 100          # Number of trajectories per energy
+N_TRAJ = 200          # Number of trajectories per energy
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
 MIN_E = 0.01           # Minimum initial energy (a.u.)
 MAX_E = 1.5           # Maximum initial energy (a.u.)
@@ -28,18 +28,18 @@ B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+# FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-DIRECTORY_ATOM = 'GS_alpha_HPC/' \
-                + FILENAME + '.csv'
+# DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+                # + FILENAME + '.csv'
 # FILENAME = '02_He_03e'
 
 # DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
                 # + FILENAME + '.csv'
 # FILENAME = '02_He_01e'
-# FILENAME = '03_Li_02e'
-# DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
-                # + FILENAME + '.csv'
+FILENAME = '03_Li_02e'
+DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
+                + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
 RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
