@@ -72,7 +72,7 @@ else:
         plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green')
     else:
         plt.plot(cross_all['Energy'], cross_all['Sigma_partial'], 's-', label='Partial', color='tab:orange')
-        plt.plot(cross_all['Energy'], cross_all['Sigma_total'], '^-', label='Total', color='tab:green')
+        plt.plot(cross_all['Energy'], cross_all['Sigma_full'], '^-', label='Full', color='tab:green')
     plt.xlabel(r'$E_{0}$ (a.u.)')
     plt.ylabel(r'$\sigma_{cap}$ (a₀²)')
     plt.legend()
