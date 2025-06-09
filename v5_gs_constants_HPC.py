@@ -25,7 +25,15 @@ ELEMENTS_LIST = [
     'Pa', 'U'
 ]
 
+START_FILE = '01_H_01e.csv'
+END_FILE = '38_Sr_38e.csv'
+
 # Default directories (can be overridden by sys.argv in scripts)
-DEFAULT_RESULTS_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/GS_feedback_HPC'
-DEFAULT_PLOTS_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
+# RESULTS_DIR = 'GS_feedback_HPC'
+# RESULTS_DIR = 'GS_alpha_HPC'
+# RESULTS_DIR = 'GS_alpha_anions_HPC'
+# RESULTS_DIR = 'GS_alpha_pos_ions_HPC'
+RESULTS_DIR = 'GS_alpha_neutral_ryd_HPC'
+DEFAULT_RESULTS_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/' + RESULTS_DIR
+DEFAULT_PLOTS_DIR = DEFAULT_RESULTS_DIR + '/plots'
 DEFAULT_NIST_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'

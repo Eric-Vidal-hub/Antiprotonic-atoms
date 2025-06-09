@@ -14,10 +14,38 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from v5_gs_constants_HPC import (
+    DEFAULT_RESULTS_DIR, DEFAULT_PLOTS_DIR, DEFAULT_NIST_DIR,
+    START_FILE, END_FILE
+)
 
 # Global font sizes
 labelfontsize = 18
 tickfontsize = 14
+
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['figure.figsize'] = (12, 8)
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = 32
+plt.rcParams['axes.labelsize'] = 42
+plt.rcParams['legend.fontsize'] = 26
+plt.rcParams['xtick.major.size'] = 10
+plt.rcParams['xtick.major.width'] = 2
+plt.rcParams['ytick.major.size'] = 10
+plt.rcParams['ytick.major.width'] = 2
+plt.rcParams['xtick.minor.size'] = 5
+plt.rcParams['xtick.minor.width'] = 1.5
+plt.rcParams['ytick.minor.size'] = 5
+plt.rcParams['ytick.minor.width'] = 1.5
+plt.rcParams['lines.linewidth'] = 3
+plt.rcParams['grid.linestyle'] = '--'
+plt.rcParams['grid.linewidth'] = 1
+plt.rcParams['xtick.direction'] = 'in'
+plt.rcParams['ytick.direction'] = 'in'
+plt.rcParams['axes.linewidth'] = 2
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['text.usetex'] = False
 
 
 def read_nist_data(directory):
@@ -71,7 +99,8 @@ def plot_combined_results(aggregated_df, nist_data, output_dir):
     plt.xticks(fontsize=tickfontsize)
     plt.yticks(fontsize=tickfontsize)
     plt.yscale('log')
-    plt.grid(True)
+    plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.legend(fontsize=10, loc='best')
     plt.savefig(os.path.join(output_dir, 'combined_fig_gs_e_vs_nist.svg'))
     plt.close()
@@ -193,8 +222,7 @@ def plot_relative_error(aggregated_df, nist_data, output_dir):
 
 
 def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
-         nist_directory='c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                        'LDA/neutrals'):
+         nist_directory=DEFAULT_NIST_DIR):
     """
     Main function to read all files in the HPC_results folder, aggregate data,
     and plot combined results.
@@ -264,16 +292,6 @@ def main(hpc_results_dir, output_dir, start_file=None, end_file=None,
     else:
         print("No valid data files found in the HPC_results directory.")
 
-
-# Define the directories
-hpc_results_dir = ('c:/Users/propietario/Documents/Antiprotonic-atoms/'
-                   'GS_feedback_HPC')
-output_dir = 'c:/Users/propietario/Documents/Antiprotonic-atoms/Plots'
-
-# Specify the file range (optional)
-start_file = '01_H_01e.csv'
-end_file = '38_Sr_38e.csv'
-
 # Call the main function
 if __name__ == "__main__":
-    main(hpc_results_dir, output_dir, start_file, end_file)
+    main(DEFAULT_RESULTS_DIR, DEFAULT_PLOTS_DIR, START_FILE, END_FILE)
