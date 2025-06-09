@@ -5,7 +5,7 @@ import csv
 from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v0_trajectory_constants_HPC import (
-    RESULTS_DIR, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
+    RESULTS_DIR, FILENAME, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
     PLOT_GIF, N_FRAMES, FPS
 )
 import matplotlib.patches as patches
@@ -95,6 +95,8 @@ plt.rcParams['axes.linewidth'] = 2
 plt.rcParams['figure.facecolor'] = 'white'
 
 output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
+plots_dir = os.path.join(output_dir, "plots")
+os.makedirs(plots_dir, exist_ok=True)
 csv_file = os.path.join(output_dir, 'trajectory_data.csv')
 
 # %% --- Parse CSV ---
@@ -140,7 +142,7 @@ if PLOT_POSITION:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'position_modulus_vs_time_r.svg'))
+    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_position_modulus_vs_time_r.svg'))
 
 # --- Plot modulus of momentum vs time (_e) ---
 if PLOT_MOMENTUM:
@@ -158,9 +160,8 @@ if PLOT_MOMENTUM:
         axis='both', which='both', direction='in', top=True, right=True
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    # plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'momentum_modulus_vs_time_e.svg'))
+    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_momentum_modulus_vs_time_e.svg'))
 
 
 # %% --- Energy plot from y_arr and parameters in CSV ---
@@ -222,7 +223,7 @@ if PLOT_ENERGY:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.yscale('symlog', linthresh=1e-10)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'energy_vs_time.svg'))
+    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_vs_time.svg'))
 
 
 # --- Energy components plot ---
@@ -243,7 +244,7 @@ if PLOT_COMPONENTS:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.legend(loc='best')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'energy_components_vs_time.svg'))
+    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_components_vs_time.svg'))
 
 
 # %% --- 3D Trajectory Animation (_gif) with time bar ---
@@ -323,7 +324,7 @@ if PLOT_GIF:
         fig, animate, frames=len(frames), init_func=init,
         interval=N_FRAMES / FPS, blit=True  # 60 FPS for smoothness
     )
-    gif_path = os.path.join(output_dir, 'trajectory_evolution.gif')
+    gif_path = os.path.join(plots_dir, f'{FILENAME}_trajectory_evolution.gif')
     ani.save(gif_path, writer='pillow', fps=FPS)  # Save at 60 FPS for smooth playback
 
 # %% --- Compute per-electron averages and deviations ---
@@ -395,3 +396,72 @@ with open(csv_out, "w", newline="") as f:
     f.write(f"Pauli,{pe_p_mean},{pe_p_std}\n")
     f.write(f"Total Energy,{E_mean},{E_std}\n")
 print(f"Per-electron averages and deviations written to {csv_out}")
+
+# --- Plot modulus of antiproton position vs time ---
+if PLOT_POSITION:
+    r_pbar_vec = y_arr[-6:-3, :]  # shape (3, n_times)
+    r_pbar_mod = np.linalg.norm(r_pbar_vec, axis=0)
+    plt.figure(figsize=(12, 8))
+    plt.plot(t_arr, r_pbar_mod, label='Antiproton', color='black', linestyle='-')
+    plt.xlabel(r'$t$ (a.u.)')
+    plt.ylabel(r'$|\vec{r}_{\bar{p}}|$ (a.u.)')
+    plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'antiproton_position_modulus_vs_time.svg'))
+
+# --- Compute antiproton energy evolution ---
+r_pbar_vec = y_arr[-6:-3, :]
+p_pbar_vec = y_arr[-3:, :]
+r_pbar_mod = np.linalg.norm(r_pbar_vec, axis=0)
+p_pbar_mod = np.linalg.norm(p_pbar_vec, axis=0)
+kin_pbar = p_pbar_mod**2 / (2 * MU)  # Use correct mass if different
+nuc_pbar = -ZZ / (r_pbar_mod + 1e-18)
+# Electron-antiproton interaction
+pair_pot_pbar = np.zeros_like(r_pbar_mod)
+for i in range(e_num):
+    r_e_vec = y_arr[3*i:3*(i+1), :]
+    pair_pot_pbar += 1.0 / (np.linalg.norm(r_e_vec - r_pbar_vec, axis=0) + 1e-18)
+# Heisenberg term (optional, if you want to include)
+heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * (r_pbar_mod**2 + 1e-18) * MU)) * \
+    np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
+
+E_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
+
+plt.figure(figsize=(12, 8))
+plt.plot(t_arr, E_pbar, label='Antiproton energy', color='black')
+plt.xlabel(r'$t$ (a.u.)')
+plt.ylabel(r'$E_{\bar{p}}(t)$ (a.u.)')
+plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, 'antiproton_energy_vs_time.svg'))
+
+# --- Compute electron energies (with antiproton interaction) ---
+electron_energies = np.zeros((e_num, n_times))
+for i in range(e_num):
+    r_e_vec = y_arr[3*i:3*(i+1), :]
+    p_e_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
+    r_e_mod = np.linalg.norm(r_e_vec, axis=0)
+    p_e_mod = np.linalg.norm(p_e_vec, axis=0)
+    kin_e = p_e_mod**2 / 2.0
+    nuc_e = -ZZ / (r_e_mod + 1e-18)
+    # Electron-antiproton interaction
+    r_epbar = np.linalg.norm(r_e_vec - r_pbar_vec, axis=0)
+    pot_epbar = 1.0 / (r_epbar + 1e-18)
+    # Heisenberg term (optional)
+    heisenberg_e = (XI_H**2 / (4 * ALPHA_H * (r_e_mod**2 + 1e-18))) * \
+        np.exp(ALPHA_H * (1 - (r_e_mod * p_e_mod / XI_H)**4))
+    # Electron-electron and Pauli terms can be added as needed
+    electron_energies[i, :] = kin_e + nuc_e + pot_epbar + heisenberg_e
+
+plt.figure(figsize=(12, 8))
+for i in range(e_num):
+    plt.plot(t_arr, electron_energies[i], label=f'Electron {i+1}')
+plt.xlabel(r'$t$ (a.u.)')
+plt.ylabel(r'$E_{e,i}(t)$ (a.u.)')
+plt.legend()
+plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, 'electron_energies_vs_time.svg'))
