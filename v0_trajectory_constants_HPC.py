@@ -15,10 +15,11 @@ print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 # Simulation parameters
 XPBAR = 10.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 200          # Number of trajectories per energy
-T_MAX = 25000.0       # Maximum simulation time (a.u.)
+T_STEP = 1000       # Time step (a.u.)
+T_MAX = 2500.0       # Maximum simulation time (a.u.)
 MIN_E = 0.1           # Minimum initial energy (a.u.)
 MAX_E = 0.8           # Maximum initial energy (a.u.)
-N_STEP = 3           # Number of energy steps
+E_STEP = 3           # Number of energy steps
 BMAX_0 = 3.0            # Maximum impact parameter (a.u.)
 # If True, it determines B_MAX based on initial energy
 AUTO_BMAX = True
@@ -52,5 +53,5 @@ PLOT_MOMENTUM = True
 PLOT_ENERGY = True
 PLOT_COMPONENTS = True
 PLOT_GIF = True
-N_FRAMES = N_STEP  # Number of frames for the GIF
+N_FRAMES = T_STEP  # Number of frames for the GIF
 FPS = 30  # Frames per second for the GIF

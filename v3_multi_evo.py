@@ -3,10 +3,12 @@ from scipy.integrate import solve_ivp
 import os
 import csv
 import time
-from v3_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, T_MAX, N_STEP,
-                             DIRECTORY_ATOM, RESULTS_DIR)
+from v3_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, T_MAX,
+                                N_STEP, DIRECTORY_ATOM, RESULTS_DIR)
 
 
+start_time = time.time()
+# %% FUNCTIONS
 def hamiltonian_equations(t, state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     """
     Generalized force computation for an arbitrary number of electrons.
@@ -164,7 +166,7 @@ output_dir = os.path.join(os.path.dirname(__file__), RESULTS_DIR)
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-# LOADING THE GS ATOM
+# %% LOADING THE GS ATOM
 # Read the CSV file using the csv module
 MULTI_DATA = []
 with open(DIRECTORY_ATOM, mode='r') as file:
@@ -196,7 +198,7 @@ for row in MULTI_DATA:
 ZZ = p_num
 print(f"Number of protons (Z): {ZZ}, Number of electrons: {e_num}")
 
-# ATOM RANDOM ORIENTATION
+# %% ATOM RANDOM ORIENTATION
 # Randomize the angles
 theta_rnd = np.pi * np.random.random()
 phi_rnd = 2 * np.pi * np.random.random()
@@ -206,7 +208,7 @@ rx, ry, rz, px, py, pz = convert_to_cartesian(
     r0, theta_r + theta_rnd, phi_r + phi_rnd,
     p0, theta_p + theta_rnd, phi_p + phi_rnd)
 
-# INITIAL STATE VECTOR
+# %% INITIAL STATE VECTOR
 # coordinates per particle: re1(3), re2(3),
 # momenta per particle: pe1(3), pe2(3),
 y0 = np.concatenate(
@@ -219,13 +221,9 @@ t_span = [0, T_MAX]
 t_eval = np.linspace(t_span[0], t_span[1], N_STEP)
 
 # Parameters
-M_PBAR = 1836.152672  # antiproton mass (a.u.)
 MU = 1 / (1 + (1 / (2 * ZZ * M_PBAR)))  # Reduced mass (a.u.)
-ALPHA_H = 5.0
-XI_H = 1.0
-XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
 
-print(f"Reduced mass MU: {MU}, Heisenberg parameter XI_H: {XI_H}")
+print(f"Reduced mass E- ATOM MU: {MU}, Heisenberg parameter XI_H: {XI_H}")
 
 # electrons spin, 0 for odd, 1 for even
 e_spin = np.zeros(e_num, dtype=int)
@@ -243,7 +241,7 @@ print(f"Initial position of electrons: {y0[:3 * e_num]}")
 print(f"Initial momentum of electrons: {y0[3 * e_num:]}")
 
 
-# INTEGRATION
+# %% INTEGRATION
 start_time = time.time()
 sol = solve_ivp(
     hamiltonian_equations, t_span, y0, args=(MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),

@@ -21,11 +21,11 @@ import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
-from v0_trajectory_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_E, MAX_E,
-                                  N_STEP, N_TRAJ, T_MAX, BMAX_0, XPBAR,
-                                  DIRECTORY_ATOM, B1, B2, B3,
-                                  AUTO_BMAX, THRESH_1, THRESH_2, N_CHECK_MAX)
-import concurrent.futures
+from v0_trajectory_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P,
+                                         MIN_E, MAX_E, E_STEP, T_STEP, T_MAX,
+                                         BMAX_0, XPBAR, DIRECTORY_ATOM, B1,
+                                         B2, B3, AUTO_BMAX, THRESH_1, THRESH_2,
+                                         N_CHECK_MAX)
 import time
 
 
@@ -285,17 +285,9 @@ for i in range(e_num):
 ZZ = p_num
 M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
 
-# STORAGE PARAMETERS
-CROSS_DATA = []
-INI_STATES = []
-FINAL_STATES = []
-
 # %% DYNAMIC SIMULATION
-ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # Initial energies (a.u.)
+ENERGIES = np.linspace(MIN_E, MAX_E, E_STEP)  # Initial energies (a.u.)
 E0 = ENERGIES[ID]
-# Initialize counters
-N_FULL = 0
-N_PARTIAL = 0
 
 if AUTO_BMAX:
     # Determine b_max based on initial energy
@@ -307,7 +299,6 @@ if AUTO_BMAX:
         BMAX = B3
 else:
     BMAX = BMAX_0
-
 
 CAPTURE = True  # Flag to control capture simulation
 N_CHECK = 0  # Counter for processed trajectories
@@ -340,12 +331,16 @@ while CAPTURE:
         [np.column_stack((rx, ry, rz)).flatten(),
             np.column_stack((px, py, pz)).flatten(), r0_pbar, p0_pbar]
         )
+    
+    # Time span for integration
+    t_span = [0, T_MAX]
+    t_eval = np.linspace(t_span[0], t_span[1], T_STEP)
 
     # %% INTEGRATION
     sol = solve_ivp(
         compute_forces,
-        (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),
-        method='DOP853', rtol=1e-6, atol=1e-8
+        t_span, y0, args=(M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),
+        t_eval=t_eval, dense_output=True, method='DOP853', rtol=1e-6, atol=1e-8
     )
 
     # SOLUTION
@@ -378,7 +373,7 @@ while CAPTURE:
     # Two body potentials
     pair_pot_pbar = 0.0  # Coulomb potential between electrons
 
-    # COMPUTE ELECTRONS FINAL ENERGY and pbar term
+    # %% COMPUTE ELECTRONS FINAL ENERGY and pbar term
     bound_electrons = []
     E_electrons = []
 
@@ -425,15 +420,13 @@ while CAPTURE:
         Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
         E_electrons.append(Ef_ei)
 
-        # %% CAPTURE CLASSIFICATION
-        bound_electrons.append(Ef_ei < 0)
-
+    # %% CAPTURE CLASSIFICATION
     # Final energy of the antiproton
     Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
     bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
 
-    # Classify capture
     if bound_p:
+        CAPTURE = False
         print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. ")
         end_time = time.time()
         print(f"Total simulation time: {end_time - start_time:.2f} seconds")
@@ -453,8 +446,42 @@ while CAPTURE:
                        rf_pbar.tolist() + pf_pbar.tolist() + \
                        E_electrons
             writer.writerow(row_data)
-
+    print(f"E_f of antiproton: {Ef_pbar:.3f} a.u. for {N_CHECK} check.")
     N_CHECK += 1
     if N_CHECK >= N_CHECK_MAX:
         print(f"Maximum number of checks ({N_CHECK_MAX}) reached for E0 = {E0:.3f} a.u.")
         CAPTURE = False
+
+    # After integration (sol = solve_ivp(...))
+    # Save all time steps if the antiproton is bound
+    if bound_p:
+        CAPTURE = False
+        print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. ")
+        end_time = time.time()
+        print(f"Total simulation time: {end_time - start_time:.2f} seconds")
+
+        # Save positions and momenta at every time step
+        with open(os.path.join(DIRECTORY_PBAR, f'trajectory_{ID}.csv'), mode='w', newline='') as file:
+            writer = csv.writer(file)
+            # Header: time, electron positions/momenta, antiproton position/momentum
+            header = ['time']
+            for i in range(e_num):
+                header += [f're{i+1}_x', f're{i+1}_y', f're{i+1}_z']
+            for i in range(e_num):
+                header += [f'pe{i+1}_x', f'pe{i+1}_y', f'pe{i+1}_z']
+            header += ['rpbar_x', 'rpbar_y', 'rpbar_z', 'ppbar_x', 'ppbar_y', 'ppbar_z']
+            writer.writerow(header)
+
+            # Write data for each time step
+            for idx, t in enumerate(sol.t):
+                row = [t]
+                # Electron positions
+                for i in range(e_num):
+                    row += sol.y[3*i:3*(i+1), idx].tolist()
+                # Electron momenta
+                for i in range(e_num):
+                    row += sol.y[3*e_num + 3*i:3*e_num + 3*(i+1), idx].tolist()
+                # Antiproton position and momentum
+                row += sol.y[-6:-3, idx].tolist()  # rpbar
+                row += sol.y[-3:, idx].tolist()    # ppbar
+                writer.writerow(row)
