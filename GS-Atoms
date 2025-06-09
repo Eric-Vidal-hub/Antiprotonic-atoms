@@ -13,6 +13,6 @@ cd ~/Antiprotonic-atoms/
 
 for ((z=0;z<=15;z++))
 do
-        python v4_gs_run_HPC.py /scratch/vym17xaj/GS_alpha_pos_ions_HPC -1 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*2)+$z") &
+        python v5_gs_run_HPC.py /scratch/vym17xaj/GS_alpha_neutral_ryd_HPC 0 $(bc <<< "(($SLURM_ARRAY_TASK_ID)*2)+$z") &
 done
 wait
