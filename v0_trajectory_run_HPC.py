@@ -313,7 +313,7 @@ CAPTURE = True  # Flag to control capture simulation
 N_CHECK = 0  # Counter for processed trajectories
 print(f"Running simulation for E0 = {E0:.3f} a.u. with ID {ID}...")
 while CAPTURE:
-    np.random.seed(ii)
+    np.random.seed(N_CHECK)
     # %% ATOM RANDOM ORIENTATION
     # Randomize the angles
     theta_rnd = np.pi * np.random.random()
