@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#SBATCH --array=0-2
+#SBATCH --cpus-per-task=1
+#SBATCH --time=30:00:00
+#SBATCH -p epyc-256
+
+module load anaconda3/latest
+
+source activate ~/.conda/envs/hiwi-polaron
+
+cd ~/Antiprotonic-atoms/
+
+# Create a per-job output directory:
+OUTDIR="/scratch/vym17xaj/CAP_EVO_02_He_02e_TIME_25000_HPC/"
+
+# Run the Python script, passing OUTDIR and the array ID
+python v0_trajectory_run_HPC.py $OUTDIR $SLURM_ARRAY_TASK_ID

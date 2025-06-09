@@ -1,355 +1,460 @@
+"""
+Semiclassical Monte Carlo simulation of He + antiproton capture
+using the FMD method (Beck et al., Phys. Rev. A 48, 2779 (1993)).
+
+Produces:
+ - Capture cross sections vs. initial energy (total, partial, full).
+    Outputs cross_sections.csv
+ - Initial (E,L) distribution for capture events.
+    Outputs initial_states.csv
+ - Final (E,L) distribution after capture.
+    Outputs final_states.csv
+
+Reads:
+ - csv_file: Ground-state system to extract coordinates and momenta
+
+Dependencies:
+    numpy, pandas, scipy
+"""
+import sys
 import os
 import numpy as np
 import csv
 from scipy.integrate import solve_ivp
+from v0_trajectory_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_E, MAX_E,
+                                  N_STEP, N_TRAJ, T_MAX, BMAX_0, XPBAR,
+                                  DIRECTORY_ATOM, B1, B2, B3,
+                                  AUTO_BMAX, THRESH_1, THRESH_2, N_CHECK_MAX)
+import concurrent.futures
 import time
 
-# Import constants and potentially shared functions if they were in a separate file
-from v0_trajectory_constants_single import (
-    M_PBAR, M_ELECTRON, ALPHA, XI_H, XI_P,
-    E0_PBAR, XPBAR_INIT, BB_PBAR, T_MAX_SIM, ATOM_GS_CSV_PATH,
-    CAPTURE_DISTANCE_THRESHOLD, CAPTURE_ENERGY_THRESHOLD,
-    OUTPUT_DIR_SINGLE_TRAJ, OUTPUT_FILENAME_PREFIX
-)
 
-# --- Helper Functions (can be moved to a shared utility file) ---
-def convert_spherical_to_cartesian_config(r_sph, theta_sph, phi_sph, p_sph, theta_p_sph, phi_p_sph):
-    """ Converts arrays of spherical coords to Cartesian for multiple particles. """
-    e_num = len(r_sph)
-    r_cart = np.zeros((e_num, 3))
-    p_cart = np.zeros((e_num, 3))
-    for i in range(e_num):
-        r_cart[i, 0] = r_sph[i] * np.sin(theta_sph[i]) * np.cos(phi_sph[i])
-        r_cart[i, 1] = r_sph[i] * np.sin(theta_sph[i]) * np.sin(phi_sph[i])
-        r_cart[i, 2] = r_sph[i] * np.cos(theta_sph[i])
-        
-        p_cart[i, 0] = p_sph[i] * np.sin(theta_p_sph[i]) * np.cos(phi_p_sph[i])
-        p_cart[i, 1] = p_sph[i] * np.sin(theta_p_sph[i]) * np.sin(phi_p_sph[i])
-        p_cart[i, 2] = p_sph[i] * np.cos(theta_p_sph[i])
-    return r_cart, p_cart
-
-def load_atom_gs(csv_filepath):
-    gs_data_row = None
-    with open(csv_filepath, mode='r', encoding='utf-8') as file:
-        reader = csv.DictReader(file)
-        try:
-            gs_data_row = next(reader)
-        except StopIteration:
-            raise ValueError(f"CSV file {csv_filepath} is empty.")
-
-    p_num = int(gs_data_row['p_num'])
-    e_num = int(gs_data_row['e_num'])
-    optimal_config_flat = np.fromstring(
-        gs_data_row['optimal_configuration'].strip('[]'), sep=' '
-    )
-    # Config is: r_e_sph, theta_e_sph, phi_e_sph, p_e_sph, theta_pe_sph, phi_pe_sph
-    r_e_s = optimal_config_flat[0*e_num : 1*e_num]
-    th_e_s = optimal_config_flat[1*e_num : 2*e_num]
-    phi_e_s = optimal_config_flat[2*e_num : 3*e_num]
-    p_e_s = optimal_config_flat[3*e_num : 4*e_num]
-    th_pe_s = optimal_config_flat[4*e_num : 5*e_num]
-    phi_pe_s = optimal_config_flat[5*e_num : 6*e_num]
-    
-    r_elec_cart, p_elec_cart = convert_spherical_to_cartesian_config(
-        r_e_s, th_e_s, phi_e_s, p_e_s, th_pe_s, phi_pe_s
-    )
-    return p_num, e_num, r_elec_cart, p_elec_cart
-
-# --- Hamiltonian Equations of Motion (compute_forces) ---
-def compute_forces(t, state, p_num_nucleus, num_electrons,
-                   m_elec, m_pbar, xi_h_val, alpha_val, xi_p_val): # alpha_p assumed same as alpha_val
+start_time = time.time()
+# %% FUNCTIONS
+def compute_forces(t, state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, E_SPIN):
     """
-    Forces for electrons and one antiproton.
-    state: [r_e1, r_e2, ..., p_e1, p_e2, ..., r_pbar, p_pbar] (all Cartesian 3D vectors flattened)
+    Generalized force computation for an arbitrary number of electrons.
+    Given state vector y = [r1(3), r2(3), ...,
+                            p1(3), p2(3), ..., r_pbar(3), p_pbar(3)].
+    It returns derivatives dy/dt according to Hamilton's equations.
     """
+    # Unpack state vector into shaped arrays for easier handling
+    num_electrons = (len(state) - 6) // 6  # Calculate the number of electrons
     r_e_flat = state[:3 * num_electrons]
-    p_e_flat = state[3 * num_electrons : 6 * num_electrons]
-    r_pbar = state[6 * num_electrons : 6 * num_electrons + 3]
-    p_pbar = state[6 * num_electrons + 3 :]
+    p_e_flat = state[3 * num_electrons:6 * num_electrons]
+    r_pbar = state[-6:-3]
+    p_pbar = state[-3:]
 
     r_electrons = r_e_flat.reshape((num_electrons, 3))
     p_electrons = p_e_flat.reshape((num_electrons, 3))
 
     dr_dt_electrons_flat = np.zeros(3 * num_electrons)
     dp_dt_electrons_flat = np.zeros(3 * num_electrons)
-    epsilon = 1e-18
-    ZZ = p_num_nucleus
 
-    # --- FOR ELECTRONS kk ---
+    # Small constant to prevent division by zero or extremely small norms
+    epsilon = 1e-18
+
+    # Initialize force of all electrons on the antiproton
+    f_pbar_e_sum = np.zeros(3)
+
+    # --- FORCES AND DERIVATIVES FOR ELECTRONS ---
     for kk in range(num_electrons):
         ri = r_electrons[kk]
         pi = p_electrons[kk]
         ri_norm = np.linalg.norm(ri)
         pi_norm = np.linalg.norm(pi)
 
-        # Heisenberg e-N
-        v_hei_en = 0.0
-        uu_en = 0.0
-        exp_hei_en = 0.0
-        if ri_norm > epsilon and pi_norm > epsilon and abs(xi_h_val) > epsilon:
-            uu_en = (ri_norm * pi_norm / xi_h_val)**2
-            hei_arg_exp_en = uu_en**2
-            # Capping
-            exp_val_en = alpha_val * (1 - hei_arg_exp_en)
-            if hei_arg_exp_en > 100 and exp_val_en < -300: exp_hei_en = 0.0
-            elif exp_val_en > 300: exp_hei_en = np.exp(300)
-            else: exp_hei_en = np.exp(exp_val_en)
-            v_hei_en = (xi_h_val**2 / (4 * alpha_val * ri_norm**2 * m_elec)) * exp_hei_en # Using m_elec
+        # Heisenberg core contribution (ensure this part is numerically stable)
+        v_hei = 0.0
+        # Guard against issues if ri_norm or pi_norm is zero, or XI_H is zero
+        if ri_norm > epsilon and pi_norm > epsilon and np.abs(XI_H) > epsilon:
+            # The exponent term can become very large negatively or positively.
+            # np.exp can overflow or underflow.
+            uu = (ri_norm * pi_norm / XI_H)**2
+            hei_arg_exp = uu**2
+            # Cap the argument to prevent overflows or underflows
+            # If hei_arg_exp is very small, exp_hei ~ exp(ALPHA)
+            if hei_arg_exp > 100 and ALPHA_H * (1 - hei_arg_exp) < -300:
+                exp_hei = 0.0
+            elif ALPHA_H * (1-hei_arg_exp) > 300:  # exp(300) overflows
+                exp_hei = np.exp(300)
+            else:
+                exp_hei = np.exp(ALPHA_H * (1 - hei_arg_exp))
+            v_hei = (XI_H**2 / (4 * ALPHA_H * ri_norm**2)) * exp_hei
 
-        # dr_i/dt (Electron)
-        # This form implies H_e = p_e^2/(2m_e) + V_H_e(r_e,p_e) where V_H_e gives the second term in dr/dt
-        # So, ∂V_H_e/∂p_e = - p_e/m_e * (uu_en * exp_hei_en)
-        dri_dt = (pi / m_elec) * (1 - uu_en * exp_hei_en) # Simpler FMD form for dr/dt from V_H
-        
-        # Pauli e-e contributions to dr_i/dt
-        v_pauli_contrib_dr = np.zeros(3)
-        # (Assuming E_SPIN is handled if this function is used in a context with spins)
-        # For this single trajectory, we'd need to define spins for the target atom
-        # If no Pauli, this term is zero. For Li, 2 spins same, 1 different.
-        # For now, let's assume Pauli between e0-e2 if Li is e0,e1,e2 and spins are [0,1,0]
-        # This part needs careful implementation based on how your FULL Hamiltonian has Pauli term.
-        # The version from v2_multi_evo.py was complex.
-        # A simpler Pauli derivative for dr_k/dt for pair (k,j):
-        # ∂V_pauli_kj / ∂p_k = ( (p_k-p_j)/2 / m_elec_reduced_pauli ) * factor_from_pauli_exp
-        # For now, omitting direct v_pauli_rr for simplicity, assuming dominant term is from V_H.
-        # If you add it, ensure it's ∂V_Pauli_kk,sum_j / ∂p_k
-        
-        dr_dt_electrons_flat[3*kk : 3*(kk+1)] = dri_dt # + v_pauli_contrib_dr
+        # --- PAULI EXCLUSION PRINCIPLE CONTRIBUTION ---
+        v_pauli_rr = np.zeros(3)
+        v_pauli_pp = np.zeros(3)
+        for ii in range(num_electrons):
+            for mm in range(ii + 1, num_electrons):
+                if E_SPIN[ii] == E_SPIN[mm]:
+                    # For dr/dt (Pauli force in momentum space)
+                    if kk == ii or kk == mm:
+                        r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
+                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
+                        r_im_norm = np.linalg.norm(r_im)
+                        p_im_norm = np.linalg.norm(p_im)
+                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                        hei_arg_exp_p = uu_p**2
+                        # Cap the argument to prevent overflows or underflows
+                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                            exp_pauli = 0.0
+                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
+                            exp_pauli = np.exp(300)
+                        else:
+                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                        v_pauli_rr -= p_im * uu_p * exp_pauli
 
-        # dp_i/dt (Electron)
-        f_en_coul = -ZZ * ri / (ri_norm**3 + epsilon)
-        f_epbar_coul = (ri - r_pbar) / (np.linalg.norm(ri - r_pbar)**3 + epsilon) # Force on e_k BY pbar (Repulsive)
+                    # For dp/dt (Pauli force in position space)
+                    if kk == ii or kk == mm:
+                        r_im = (2 * ri - r_electrons[mm] - r_electrons[ii])
+                        r_im_norm = np.linalg.norm(r_im)
+                        factor = (r_im / (r_im_norm**2 + epsilon))
+                        p_im = (2 * pi - p_electrons[mm] - p_electrons[ii]) / 2
+                        p_im_norm = np.linalg.norm(p_im)
+                        uu_p = (r_im_norm * p_im_norm / XI_P)**2
+                        hei_arg_exp_p = uu_p**2
+                        if hei_arg_exp_p > 100 and ALPHA_P * (1 - hei_arg_exp_p) < -300:
+                            exp_pauli = 0.0
+                        elif ALPHA_P * (1 - hei_arg_exp_p) > 300:
+                            exp_pauli = np.exp(300)
+                        else:
+                            exp_pauli = np.exp(ALPHA_P * (1 - hei_arg_exp_p))
+                        v_pauli_term = (XI_P**2 / (2 * ALPHA_P * r_im_norm**2)) * exp_pauli
+                        v_pauli_pp += factor * 2 * v_pauli_term * (1 + 2 * ALPHA_P * hei_arg_exp_p)
 
-        f_ee_coul_sum = np.zeros(3)
-        for jj in range(num_electrons):
-            if kk == jj: continue
-            r_kj = ri - r_electrons[jj]
-            f_ee_coul_sum += r_kj / (np.linalg.norm(r_kj)**3 + epsilon)
+        # T-DER of r_i: dr_i/dt = dH/dp_i
+        dri_dt = pi * (1 - uu * exp_hei) + v_pauli_rr
+        dr_dt_electrons_flat[3*kk:3*(kk+1)] = dri_dt
 
-        f_hei_en_force_scalar = (2 * v_hei_en / (ri_norm**2 + epsilon)) * (1 + 2 * alpha_val * hei_arg_exp_en)
-        
-        # Pauli e-e contributions to dp_i/dt
-        v_pauli_contrib_dp = np.zeros(3)
-        # Similar to dr/dt, this needs careful derivation.
-        # -∂V_pauli_kj / ∂r_k = factor_pauli_exp * (r_k-r_j)/norm * scalar_terms
-        # For now, omitting direct v_pauli_pp.
+        # --- FORCES ON E MOMENTA ---
+        # Force on electron i from the nucleus
+        f_en = -ZZ / (ri_norm**3 + epsilon)
 
-        dp_dt_electrons_flat[3*kk : 3*(kk+1)] = f_en_coul + f_epbar_coul + f_ee_coul_sum + \
-                                               (ri * f_hei_en_force_scalar) # + v_pauli_contrib_dp
-    
-    # --- FOR ANTIPROTON ---
+        # Force on electron i from antiproton
+        f_epbar = (ri - r_pbar) / (np.linalg.norm(r_pbar - ri)**3 + epsilon)
+
+        # Force on electron i from other electrons
+        f_ee_sum = np.zeros(3)
+        for ii in range(num_electrons):
+            for mm in range(ii + 1, num_electrons):
+                if kk == ii:
+                    r_ij = ri - r_electrons[mm]
+                    norm_r_ij = np.linalg.norm(r_ij)
+                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+                elif kk == mm:
+                    r_ij = ri - r_electrons[ii]
+                    norm_r_ij = np.linalg.norm(r_ij)
+                    f_ee_sum += r_ij / (norm_r_ij**3 + epsilon)
+
+        # Heisenberg core contribution for electron i
+        f_heisenberg_p = (2 * v_hei / (ri_norm**2 + epsilon)) * (
+            1 + 2 * ALPHA_H * hei_arg_exp
+        )
+        # T-DER p_i: dp_i/dt = -dH/dr_i
+        dp_dt_electrons_flat[3*kk:3*(kk+1)] = (
+            ri * (f_en + f_heisenberg_p) + f_ee_sum + f_epbar + v_pauli_pp
+        )
+
+        # --- FORCES AND DERIVATIVES FOR PBAR ---
+        # Force of all electrons on the antiproton
+        f_pbar_e_sum -= f_epbar
+
+    # ITERATION ON ELECTRONS FINISHED
     r_pbar_norm = np.linalg.norm(r_pbar)
     p_pbar_norm = np.linalg.norm(p_pbar)
+    # Heisenberg core contribution for antiproton
+    v_hei_pbar = 0.0
+    # Guard against issues if r_pbar_norm or p_pbar_norm is zero, or XI_H is zero
+    if r_pbar_norm > epsilon and p_pbar_norm > epsilon and np.abs(XI_H) > epsilon:
+        uu_pbar = (r_pbar_norm * p_pbar_norm / XI_H)**2
+        hei_arg_exp_pbar = uu_pbar**2
+        # Cap the argument to prevent overflows or underflows
+        if hei_arg_exp_pbar > 100 and ALPHA_H * (1 - hei_arg_exp_pbar) < -300:
+            exp_hei_pbar = 0.0
+        elif ALPHA_H * (1-hei_arg_exp_pbar) > 300:  # exp(300) overflows
+            exp_hei_pbar = np.exp(300)
+        else:
+            exp_hei_pbar = np.exp(ALPHA_H * (1 - hei_arg_exp_pbar))
+        v_hei_pbar = (XI_H**2 / (4 * ALPHA_H * r_pbar_norm**2 * M_STAR)) * exp_hei_pbar
+    # Time derivative of r_pbar: dr_pbar/dt = dH/dp_pbar
+    dR_pbar_dt = (p_pbar / M_STAR) * (1 - uu_pbar * exp_hei_pbar)
 
-    # Heisenberg pbar-N (assuming similar form to e-N but with m_pbar)
-    v_hei_pbar_n = 0.0
-    uu_pbar_n = 0.0
-    exp_hei_pbar_n = 0.0
-    if r_pbar_norm > epsilon and p_pbar_norm > epsilon and abs(xi_h_val) > epsilon: # Use same XI_H, ALPHA for pbar-N
-        uu_pbar_n = (r_pbar_norm * p_pbar_norm / xi_h_val)**2
-        hei_arg_exp_pbar_n = uu_pbar_n**2
-        exp_val_pn = alpha_val * (1 - hei_arg_exp_pbar_n)
-        if hei_arg_exp_pbar_n > 100 and exp_val_pn < -300: exp_hei_pbar_n = 0.0
-        elif exp_val_pn > 300: exp_hei_pbar_n = np.exp(300)
-        else: exp_hei_pbar_n = np.exp(exp_val_pn)
-        # Potential term uses M_PBAR in denominator
-        v_hei_pbar_n = (xi_h_val**2 / (4 * alpha_val * r_pbar_norm**2 * m_pbar)) * exp_hei_pbar_n
+    # --- FORCES ON PBAR MOMENTUM ---
+    # Force on antiproton from nucleus (attractive V = -ZZ/||R_pbar||)
+    f_pbar_nuc = -ZZ / (r_pbar_norm**3 + epsilon)
 
-    # dr_pbar/dt
-    # Similar logic for dr/dt as for electrons, using m_pbar
-    dR_pbar_dt = (p_pbar / m_pbar) * (1 - uu_pbar_n * exp_hei_pbar_n)
+    # Heisenberg core contribution for antiproton
+    f_hei_p_pbar = (2 * v_hei_pbar / (r_pbar_norm**2 + epsilon)) * (
+        1 + 2 * ALPHA_H * hei_arg_exp_pbar
+    )
 
-    # dp_pbar/dt
-    f_pbar_nuc_coul = -ZZ * r_pbar / (r_pbar_norm**3 + epsilon) # Attractive to nucleus
-    
-    f_pbar_elec_coul_sum = np.zeros(3)
-    for kk in range(num_electrons):
-        r_pbark = r_pbar - r_electrons[kk] # Vector from e_k to pbar
-        # Force on pbar BY e_k is - (r_pbark / norm^3) (Attractive because charges -1,-1 -> +1 potential)
-        # Wait, pbar(-e) and electron(-e) REPEL. Force on pbar from electron k is + r_pbark / norm^3
-        f_pbar_elec_coul_sum += r_pbark / (np.linalg.norm(r_pbark)**3 + epsilon)
+    # T-DER P: dP/dt = -dH/dR
+    dP_pbar_dt = r_pbar * (f_pbar_nuc + f_hei_p_pbar) + f_pbar_e_sum
 
-    f_hei_pbar_n_force_scalar = (2 * v_hei_pbar_n / (r_pbar_norm**2 + epsilon)) * (1 + 2 * alpha_val * hei_arg_exp_pbar_n)
-    
-    dP_pbar_dt = f_pbar_nuc_coul + f_pbar_elec_coul_sum + (r_pbar * f_hei_pbar_n_force_scalar)
-
+    # Assemble FULL DER vector
     derivatives = np.concatenate([
-        dr_dt_electrons_flat, dp_dt_electrons_flat,
-        dR_pbar_dt, dP_pbar_dt
+        dr_dt_electrons_flat,
+        dp_dt_electrons_flat,
+        dR_pbar_dt,
+        dP_pbar_dt
     ])
+
     return derivatives
 
-# --- Capture Event Definition ---
-# This needs to be callable by solve_ivp's 'events' argument
-def check_capture_event(t, state, p_num_nucleus, num_electrons, m_pbar, xi_h_val, alpha_val):
+def convert_to_cartesian(rr, theta, phi, pp, theta_p, phi_p):
+    """Converts spherical coordinates to Cartesian coordinates.
+
+    Converts the given spherical coordinates (r, theta, phi) and momenta
+    (p, theta_p, phi_p) to Cartesian coordinates (x, y, z) and momenta
+    (px, py, pz).
+
+    Args:
+        rr: Radial distance.
+        theta: Polar angle.
+        phi: Azimuthal angle.
+        pp: Momentum magnitude.
+        theta_p: Polar angle of momentum.
+        phi_p: Azimuthal angle of momentum.
+
+    Returns:
+        A tuple containing the Cartesian coordinates (x, y, z, px, py, pz).
     """
-    Checks if the antiproton is captured.
-    Capture: pbar_dist_to_nucleus < threshold AND pbar_energy_rel_to_nucleus < threshold
-    """
-    r_pbar = state[6*num_electrons : 6*num_electrons+3]
-    p_pbar = state[6*num_electrons+3 :]
-    r_electrons = state[:3*num_electrons].reshape((num_electrons, 3))
-    
-    dist_pbar_nucleus = np.linalg.norm(r_pbar)
-    
-    # Calculate pbar energy (KE_pbar + V_pbar_N_Coul + sum(V_pbar_e_Coul) + V_pbar_N_Heis)
-    ke_pbar = np.sum(p_pbar**2) / (2 * m_pbar)
-    V_pbar_N_coul = -p_num_nucleus / (dist_pbar_nucleus + 1e-18)
-    
-    V_pbar_E_coul_sum = 0
-    for i in range(num_electrons):
-        V_pbar_E_coul_sum += 1.0 / (np.linalg.norm(r_pbar - r_electrons[i]) + 1e-18) # Repulsive
 
-    # Heisenberg pbar-N
-    V_pbar_N_heis = 0.0
-    p_pbar_norm = np.linalg.norm(p_pbar)
-    if dist_pbar_nucleus > 1e-18 and p_pbar_norm > 1e-18 and abs(xi_h_val) > 1e-18:
-        uu_pn = (dist_pbar_nucleus * p_pbar_norm / xi_h_val)**2
-        arg_exp_pn = uu_pn**2
-        exp_val = alpha_val * (1 - arg_exp_pn)
-        if arg_exp_pn > 100 and exp_val < -300: exp_h_pn = 0.0
-        elif exp_val > 300: exp_h_pn = np.exp(300)
-        else: exp_h_pn = np.exp(exp_val)
-        V_pbar_N_heis = (xi_h_val**2 / (4 * alpha_val * dist_pbar_nucleus**2 * m_pbar)) * exp_h_pn
-        
-    pbar_energy_relative = ke_pbar + V_pbar_N_coul + V_pbar_E_coul_sum + V_pbar_N_heis
-    
-    # Event function: value should go from positive to negative (or vice-versa) at event
-    # We want to stop if (dist < D_thresh AND energy < E_thresh)
-    # Let's define event as: (CAPTURE_ENERGY_THRESHOLD - pbar_energy_relative)
-    # This goes positive when pbar_energy_relative < CAPTURE_ENERGY_THRESHOLD.
-    # And also dist_pbar_nucleus - CAPTURE_DISTANCE_THRESHOLD (goes negative when close)
-    # For combined event, it's trickier. Let's use a simpler distance for now, or energy.
-    
-    # Stop if pbar energy is negative AND it's close
-    if pbar_energy_relative < CAPTURE_ENERGY_THRESHOLD and dist_pbar_nucleus < CAPTURE_DISTANCE_THRESHOLD :
-        return 0 # Event occurs when function is zero
-    return 1 # Otherwise, no event
-check_capture_event.terminal = True # Stop integration if event occurs
-check_capture_event.direction = -1 # Event when value goes from positive to negative (or just hits zero)
+    x_coord = rr * np.sin(theta) * np.cos(phi)
+    y_coord = rr * np.sin(theta) * np.sin(phi)
+    z_coord = rr * np.cos(theta)
+
+    px = pp * np.sin(theta_p) * np.cos(phi_p)
+    py = pp * np.sin(theta_p) * np.sin(phi_p)
+    pz = pp * np.cos(theta_p)
+
+    return x_coord, y_coord, z_coord, px, py, pz
 
 
-# --- Main Simulation ---
-if __name__ == "__main__":
-    print("Starting single trajectory simulation for antiproton capture...")
+# %% SIMULATION
+# DIRECTORY TO SAVE THE RESULTS
+DIRECTORY_PBAR = sys.argv[1]
+ID = int(sys.argv[2])
 
-    # Load Atom Ground State
+if not os.path.exists(DIRECTORY_PBAR):
+    print('Directory not found.')
+    print('Create Directory...')
     try:
-        ZZ_nucleus, num_e, r_elec_init_cart, p_elec_init_cart = load_atom_gs(ATOM_GS_CSV_PATH)
-        print(f"Loaded target atom: Z={ZZ_nucleus}, N_e={num_e}")
-    except Exception as e:
-        print(f"Error loading atom ground state from {ATOM_GS_CSV_PATH}: {e}")
-        exit()
+        os.mkdir(DIRECTORY_PBAR)
+    except FileExistsError:
+        print("Directory was already created by a different process!")
+else:
+    print('Directory exists!')
 
-    # Initial Antiproton State
-    # For simplicity, impact parameter BB_PBAR is in the y-direction, pbar approaches along -x
-    r0_pbar = np.array([-XPBAR_INIT, BB_PBAR, 0.0])
-    # Initial momentum (all in +x direction)
-    # M_STAR_PBAR_SYSTEM for initial KE calculation (reduced mass pbar + TargetAtomAsWhole)
-    # This M_STAR is only for setting initial p0_pbar from E0_PBAR.
-    # The dynamics use M_PBAR for the antiproton.
-    mass_target_atom_approx = ZZ_nucleus * M_PBAR # Approx mass of nucleus for reduced mass calc
-    m_reduced_pbar_atom = (M_PBAR * mass_target_atom_approx) / (M_PBAR + mass_target_atom_approx)
-    
-    p0_pbar_magnitude = np.sqrt(2 * E0_PBAR * m_reduced_pbar_atom)
-    p0_pbar = np.array([p0_pbar_magnitude, 0.0, 0.0])
-    print(f"Antiproton: E0={E0_PBAR:.2f} au, B={BB_PBAR:.2f} au, R0_pbar={r0_pbar}, P0_pbar_mag={p0_pbar_magnitude:.2f} au")
+# %% LOADING THE GS ATOM
+# Read the CSV file using the csv module
+MULTI_DATA = []
+with open(DIRECTORY_ATOM, mode='r') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        MULTI_DATA.append(row)
 
-    # Initial State Vector y0 for solve_ivp
-    y0 = np.concatenate([
-        r_elec_init_cart.flatten(),
-        p_elec_init_cart.flatten(),
-        r0_pbar,
-        p0_pbar
-    ])
+# Ensure the expected columns exist
+required_col = ['p_num', 'e_num', 'optimal_configuration']
+if not all(col in MULTI_DATA[0] for col in required_col):
+    raise KeyError(f"Missing required columns in the CSV file: {required_col}")
 
-    # Arguments for compute_forces and event function
-    force_args = (ZZ_nucleus, num_e, M_ELECTRON, M_PBAR, XI_H, ALPHA, XI_P) # Assuming ALPHA_P=ALPHA
-    event_args = (ZZ_nucleus, num_e, M_PBAR, XI_H, ALPHA)
+# Expected config: r0_1, r0_i, theta_r_1, theta_r_i, phi_r_1, phi_r_i, p0_1,
+# p0_i, theta_p_1, theta_p_i, phi_p_1, phi_p_i
+# Convert to numpy arrays
+for row in MULTI_DATA:
+    p_num = int(row['p_num'])
+    e_num = int(row['e_num'])
+    optimal_config = np.fromstring(row['optimal_configuration'].strip('[]'),
+                                   sep=' ')
+    r0 = optimal_config[:e_num]
+    theta_r = optimal_config[e_num:2*e_num]
+    phi_r = optimal_config[2*e_num:3*e_num]
+    p0 = optimal_config[3*e_num:4*e_num]
+    theta_p = optimal_config[4*e_num:5*e_num]
+    phi_p = optimal_config[5*e_num:6*e_num]
+
+# electrons spin, 0 for odd, 1 for even
+e_spin = np.zeros(e_num, dtype=int)
+# Set the spin of electrons based on their index
+for i in range(e_num):
+    e_spin[i] = i % 2  # 0 for odd, 1 for even
+
+# Atomic number Z, number of protons
+ZZ = p_num
+M_STAR = M_PBAR / (1 + (1 / (2 * ZZ)))  # Reduced mass (a.u.)
+
+# STORAGE PARAMETERS
+CROSS_DATA = []
+INI_STATES = []
+FINAL_STATES = []
+
+# %% DYNAMIC SIMULATION
+ENERGIES = np.linspace(MIN_E, MAX_E, N_STEP)  # Initial energies (a.u.)
+E0 = ENERGIES[ID]
+# Initialize counters
+N_FULL = 0
+N_PARTIAL = 0
+
+if AUTO_BMAX:
+    # Determine b_max based on initial energy
+    if E0 > THRESH_1:
+        BMAX = B1
+    elif E0 > THRESH_2:
+        BMAX = B2
+    else:
+        BMAX = B3
+else:
+    BMAX = BMAX_0
 
 
-    # Integration
-    print(f"Starting integration up to T_MAX = {T_MAX_SIM:.1f} a.u. ...")
-    start_time = time.time()
+CAPTURE = True  # Flag to control capture simulation
+N_CHECK = 0  # Counter for processed trajectories
+print(f"Running simulation for E0 = {E0:.3f} a.u. with ID {ID}...")
+while CAPTURE:
+    np.random.seed(ii)
+    # %% ATOM RANDOM ORIENTATION
+    # Randomize the angles
+    theta_rnd = np.pi * np.random.random()
+    phi_rnd = 2 * np.pi * np.random.random()
+
+    # Convert to Cartesian coordinates
+    rx, ry, rz, px, py, pz = convert_to_cartesian(
+        r0, theta_r + theta_rnd, phi_r + phi_rnd,
+        p0, theta_p + theta_rnd, phi_p + phi_rnd)
+
+    # %% ANTIPROTON INITIALIZATION
+    # Random impact parameter uniform in area
+    BB = np.sqrt(np.random.random()) * BMAX
+    angle = 2 * np.pi * np.random.random()
+    # Launch antiproton far away along +x with offset in y
+    r0_pbar = np.array([-XPBAR, BB * np.cos(angle), BB * np.sin(angle)])
+    # initial momentum vector
+    p0_pbar = np.array([np.sqrt(2 * E0 * M_STAR), 0.0, 0.0])
+
+    # INITIAL STATE VECTOR
+    # coordinates per particle: re1(3), re2(3), ..., rpbar(3),
+    # momenta per particle: pe1(3), pe2(3), ..., ppbar(3)
+    y0 = np.concatenate(
+        [np.column_stack((rx, ry, rz)).flatten(),
+            np.column_stack((px, py, pz)).flatten(), r0_pbar, p0_pbar]
+        )
+
+    # %% INTEGRATION
     sol = solve_ivp(
         compute_forces,
-        (0.0, T_MAX_SIM),
-        y0,
-        args=force_args,
-        method='DOP853', # Good general purpose, high order
-        rtol=1e-7, # Tighter tolerance might be needed
-        atol=1e-9,
-        dense_output=True,
-        events=check_capture_event # Add the event function
+        (0.0, T_MAX), y0, args=(M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_spin),
+        method='DOP853', rtol=1e-6, atol=1e-8
     )
-    end_time = time.time()
-    print(f"Integration finished in {end_time - start_time:.2f} seconds. Status: {sol.message}")
 
-    if sol.status == 1: # Event triggered
-        print("Capture event detected!")
-        capture_time = sol.t_events[0][0]
-        capture_state = sol.sol(capture_time) # Get state at exact event time
-        print(f"  Capture occurred at t = {capture_time:.2f} a.u.")
-        # Truncate solution arrays to the point of capture for saving
-        t_to_save = sol.t[sol.t <= capture_time]
-        y_to_save = sol.y[:, sol.t <= capture_time]
-        if len(t_to_save) == 0 or t_to_save[-1] < capture_time : # Ensure event time is included
-             t_to_save = np.append(t_to_save, capture_time)
-             y_to_save = np.column_stack((y_to_save, capture_state))
+    # SOLUTION
+    yf = sol.y[:, -1]
 
-    elif sol.status == 0: # Integration completed full T_MAX
-        print("Integration completed full T_MAX. No capture event detected by criteria.")
-        capture_time = T_MAX_SIM
-        capture_state = sol.y[:, -1]
-        t_to_save = sol.t
-        y_to_save = sol.y
-    else: # Solver failed
-        print(f"Solver failed with status {sol.status}: {sol.message}")
-        # Save what we have
-        capture_time = sol.t[-1] if len(sol.t) > 0 else 0
-        capture_state = sol.y[:, -1] if sol.y.shape[1] > 0 else y0
-        t_to_save = sol.t
-        y_to_save = sol.y
+    # Extract initial position and momentum of electrons
+    rf_e = yf[:3 * e_num]
+    pf_e = yf[3 * e_num:-6]
+    # Ensure the vectors are 1D
+    rf_e = np.array(rf_e).flatten()
+    pf_e = np.array(pf_e).flatten()
 
+    # Extract final position and momentum of the antiproton
+    rf_pbar = yf[-6:-3]
+    pf_pbar = yf[-3:]
+    # Ensure the vectors are 1D
+    rf_pbar = np.array(rf_pbar).flatten()
+    pf_pbar = np.array(pf_pbar).flatten()
 
-    # Prepare data for saving
-    os.makedirs(OUTPUT_DIR_SINGLE_TRAJ, exist_ok=True)
-    filename = f"{OUTPUT_FILENAME_PREFIX}_E0_{E0_PBAR:.2f}_B_{BB_PBAR:.2f}.npz"
-    output_path = os.path.join(OUTPUT_DIR_SINGLE_TRAJ, filename)
+    # %% COMPUTE PBAR FINAL ENERGY
+    # One body potentials
+    norm_rf_pbar = np.linalg.norm(rf_pbar)
+    norm_pf_pbar = np.linalg.norm(pf_pbar)
+    kin_pbar = norm_pf_pbar**2 / (2 * M_STAR)
+    nuc_pbar = -ZZ / np.linalg.norm(rf_pbar)
+    heisenberg_pbar = (
+        (XI_H**2 / (4 * ALPHA_H * M_STAR * norm_rf_pbar**2)) *
+        np.exp(ALPHA_H * (1 - (norm_rf_pbar * norm_pf_pbar / XI_H)**4))
+    )
+    # Two body potentials
+    pair_pot_pbar = 0.0  # Coulomb potential between electrons
 
-    saved_data = {
-        'time_array': t_to_save,
-        'state_array': y_to_save, # Shape: (N_coords, N_timesteps)
-        'num_electrons': num_e,
-        'p_num_nucleus': ZZ_nucleus,
-        'initial_E0_pbar': E0_PBAR,
-        'initial_BB_pbar': BB_PBAR,
-        'initial_XPBAR': XPBAR_INIT,
-        'T_MAX_simulated': t_to_save[-1] if len(t_to_save) > 0 else 0,
-        'capture_time': capture_time if sol.status == 1 else None,
-        'capture_state': capture_state if sol.status == 1 else None,
-        'final_status_message': sol.message,
-        'FMD_ALPHA': ALPHA,
-        'FMD_XI_H': XI_H, # This is the scaled one
-        'FMD_XI_P': XI_P  # This is the scaled one
-    }
+    # COMPUTE ELECTRONS FINAL ENERGY and pbar term
+    bound_electrons = []
+    E_electrons = []
 
-    np.savez_compressed(output_path, **saved_data)
-    print(f"Trajectory data saved to: {output_path}")
+    for ii in range(e_num):
+        rf_ei = rf_e[3 * ii:3 * (ii + 1)]
+        pf_ei = pf_e[3 * ii:3 * (ii + 1)]
 
-    # Example of how to check final pbar energy (if needed for analysis)
-    final_pbar_r = capture_state[6*num_e : 6*num_e+3]
-    final_pbar_p = capture_state[6*num_e+3 :]
-    final_electrons_r = capture_state[:3*num_e].reshape((num_e,3))
+        norm_rf_ei = np.linalg.norm(rf_ei)
+        norm_pf_ei = np.linalg.norm(pf_ei)
+        kin_ei = norm_pf_ei**2 / 2.0
+        nuc_ei = -ZZ / norm_rf_ei
+        heisenberg_ei = (
+            (XI_H**2 / (4 * ALPHA_H * norm_rf_ei**2)) *
+            np.exp(ALPHA_H * (1 - (norm_rf_ei * norm_pf_ei / XI_H)**4))
+        )
 
-    # Recalculate final pbar energy (simplified for printing)
-    final_ke_pbar = np.sum(final_pbar_p**2) / (2 * M_PBAR)
-    final_V_pbar_N = -ZZ_nucleus / (np.linalg.norm(final_pbar_r) + 1e-18)
-    final_V_pbar_E = 0
-    for i in range(num_e):
-        final_V_pbar_E += 1.0 / (np.linalg.norm(final_pbar_r - final_electrons_r[i]) + 1e-18)
-    # Simplified: not including Heisenberg here for brevity, add if needed
-    final_pbar_energy_approx = final_ke_pbar + final_V_pbar_N + final_V_pbar_E
-    print(f"Approximate final pbar energy (Coulomb + KE): {final_pbar_energy_approx:.3f} a.u.")
-    if sol.status == 1:
-         print(f"  Distance to nucleus at capture: {np.linalg.norm(final_pbar_r):.3f} a.u.")
+        # Electron-antiproton Coulomb
+        ei_pbar = np.linalg.norm(rf_ei - rf_pbar)
+        pot_pbar_ei = 1.0 / ei_pbar
+        pair_pot_pbar += pot_pbar_ei
+
+        # Electron-electron Coulomb and Pauli (sum only for j > ii to avoid double-counting)
+        pair_pot_ei = 0
+        pauli_pot = 0.0
+        if e_num > 1:
+            for j in range(ii + 1, e_num):
+                rf_ej = rf_e[3 * j:3 * (j + 1)]
+                delta_r = np.linalg.norm(rf_ei - rf_ej)
+                pair_pot_ei += 1.0 / delta_r
+                # Pauli term for identical spins
+                if e_spin[ii] == e_spin[j]:
+                    pf_ej = pf_e[3 * j:3 * (j + 1)]
+                    delta_p = np.linalg.norm(pf_ei - pf_ej)
+                    uu_p = (delta_r * delta_p / XI_P)**2
+                    pauli_arg_exp_p = uu_p**2
+                    if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
+                        exp_pauli = 0.0
+                    elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
+                        exp_pauli = np.exp(300)
+                    else:
+                        exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
+                    pauli_pot += (XI_P**2 / (4 * ALPHA_P * delta_r**2)) * exp_pauli
+
+        Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
+        E_electrons.append(Ef_ei)
+
+        # %% CAPTURE CLASSIFICATION
+        bound_electrons.append(Ef_ei < 0)
+
+    # Final energy of the antiproton
+    Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
+    bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
+
+    # Classify capture
+    if bound_p:
+        print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. ")
+        end_time = time.time()
+        print(f"Total simulation time: {end_time - start_time:.2f} seconds")
+
+        # Save in a CSV file the positions and momenta of the antiproton and electrons
+        with open(os.path.join(DIRECTORY_PBAR, f'capture_{ID}.csv'), mode='w', newline='') as file:
+            writer = csv.writer(file)
+            # Write header
+            header = ['p_num', 'e_num', 'E0', 'BMAX', 'rx', 'ry', 'rz',
+                      'px', 'py', 'pz', 'rf_pbar_x', 'rf_pbar_y',
+                      'rf_pbar_z', 'pf_pbar_x', 'pf_pbar_y',
+                      'pf_pbar_z'] + [f'E_electron_{i}' for i in range(e_num)]
+            writer.writerow(header)
+            # Write data
+            row_data = [p_num, e_num, E0, BMAX] + \
+                       rf_e.tolist() + pf_e.tolist() + \
+                       rf_pbar.tolist() + pf_pbar.tolist() + \
+                       E_electrons
+            writer.writerow(row_data)
+
+    N_CHECK += 1
+    if N_CHECK >= N_CHECK_MAX:
+        print(f"Maximum number of checks ({N_CHECK_MAX}) reached for E0 = {E0:.3f} a.u.")
+        CAPTURE = False
