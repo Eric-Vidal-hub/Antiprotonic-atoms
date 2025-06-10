@@ -425,7 +425,7 @@ while CAPTURE:
     Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
     bound_p = Ef_pbar < 0     # Antiproton bound if Ef < 0
 
-    if bound_p:
+    if bound_p and any(e < 0 for e in E_electrons):
         CAPTURE = False
         print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. ")
         end_time = time.time()

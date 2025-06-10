@@ -18,7 +18,7 @@ N_TRAJ = 200          # Number of trajectories per energy
 T_STEP = 1000       # Time step (a.u.)
 T_MAX = 2500.0       # Maximum simulation time (a.u.)
 MIN_E = 0.1           # Minimum initial energy (a.u.)
-MAX_E = 0.8           # Maximum initial energy (a.u.)
+MAX_E = 0.5           # Maximum initial energy (a.u.)
 E_STEP = 3           # Number of energy steps
 BMAX_0 = 3.0            # Maximum impact parameter (a.u.)
 # If True, it determines B_MAX based on initial energy
@@ -45,7 +45,7 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 #                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
+RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC_with_e'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
 PLOT_POSITION = True
