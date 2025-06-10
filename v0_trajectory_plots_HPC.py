@@ -6,7 +6,7 @@ from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v0_trajectory_constants_HPC import (
     RESULTS_DIR, FILENAME, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
-    PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR
+    PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR, PLOT_ID,
 )
 import matplotlib.patches as patches
 
@@ -16,7 +16,7 @@ def calculate_energies(state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
     """
     Compute total and component energies for a given state vector,
     matching the logic in v0_trajectory_run_HPC.py.
-    Returns: E, ke, pe_en, pe_ee, pe_h, pe_p
+    Returns: E, ke, pe_en, pe_ee, pe_h, pauli_pot
     """
     # Unpack state vector
     # [re1_x, re1_y, re1_z, ..., pe1_x, pe1_y, pe1_z, ..., rpbar_x, rpbar_y, rpbar_z, ppbar_x, ppbar_y, ppbar_z]
@@ -103,10 +103,17 @@ plots_dir = os.path.join(output_dir, "plots")
 os.makedirs(plots_dir, exist_ok=True)
 
 # --- Find and read the capture file for parameters ---
-capture_files = [f for f in os.listdir(output_dir) if f.startswith('capture_') and f.endswith('.csv')]
-if not capture_files:
-    raise FileNotFoundError("No capture_{ID}.csv file found in the results directory.")
-capture_file = os.path.join(output_dir, capture_files[0])
+capture_file = os.path.join(output_dir, f'capture_{PLOT_ID}.csv')
+traj_file = os.path.join(output_dir, f'trajectory_{PLOT_ID}.csv')
+
+if not os.path.exists(capture_file):
+    raise FileNotFoundError(f"Capture file not found: {capture_file}")
+if not os.path.exists(traj_file):
+    raise FileNotFoundError(f"Trajectory file not found: {traj_file}")
+
+capture_id = PLOT_ID
+traj_id = PLOT_ID
+
 with open(capture_file, newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
     header_cap = next(reader)
@@ -128,6 +135,9 @@ traj_files = [f for f in os.listdir(output_dir) if f.startswith('trajectory_') a
 if not traj_files:
     raise FileNotFoundError("No trajectory_{ID}.csv file found in the results directory.")
 csv_file = os.path.join(output_dir, traj_files[0])
+# Extract the ID from the filename
+traj_id = traj_files[0].split('_')[-1].split('.')[0]
+
 with open(csv_file, newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
     header = next(reader)
@@ -163,6 +173,31 @@ p_pbar_arr = np.stack([data[:, header.index('ppbar_x')],
 n_vars = data.shape[1] - 1  # subtract time column
 y_arr = data[:, 1:].T  # shape (n_vars, n_times)
 
+# --- Compute all energies/components once ---
+energies = []
+ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
+for i_step in range(n_times):
+    current_state = y_arr[:, i_step]
+    E, ke, pe_en, pe_ee, pe_h, pe_p = calculate_energies(
+        current_state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
+    )
+    energies.append(E)
+    ke_list.append(ke)
+    pe_en_list.append(pe_en)
+    pe_ee_list.append(pe_ee)
+    pe_h_list.append(pe_h)
+    pe_p_list.append(pe_p)
+energies = np.array(energies)
+E0 = energies[0]
+relative_energy_error = np.abs((energies - E0) / (np.abs(E0) + 1e-18))
+
+# Get initial antiproton momentum vector from y_arr
+p_pbar0 = y_arr[-3:, 0]
+# Compute initial kinetic energy of the antiproton
+E0_pbar_kin = np.dot(p_pbar0, p_pbar0) / (2 * M_STAR)
+# Format for filename (e.g., Kpbar_m1.2345 for -1.2345)
+Kpbar_str = f"{E0_pbar_kin:+.4f}".replace('.', 'p').replace('-', 'm').replace('+', 'p')
+
 # --- Plot modulus of position vs time (_r) ---
 if PLOT_POSITION:
     plt.figure(figsize=(12, 8))
@@ -182,7 +217,9 @@ if PLOT_POSITION:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
     plt.ylim(np.min(r_pbar_mod)*0.9, np.max(r_pbar_mod)*1.1)
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_position_modulus_vs_time_r.svg'))
+    plt.savefig(os.path.join(
+        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_position_modulus_vs_time_r.svg'
+    ))
 
 # --- Plot modulus of momentum vs time (_e) ---
 if PLOT_MOMENTUM:
@@ -203,25 +240,9 @@ if PLOT_MOMENTUM:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
     plt.ylim(np.min(p_mod)*0.9, np.max(p_mod)*2)
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_momentum_modulus_vs_time_e.svg'))
-
-# --- Compute all energies/components once ---
-energies = []
-ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
-for i_step in range(n_times):
-    current_state = y_arr[:, i_step]
-    E, ke, pe_en, pe_ee, pe_h, pe_p = calculate_energies(
-        current_state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
-    )
-    energies.append(E)
-    ke_list.append(ke)
-    pe_en_list.append(pe_en)
-    pe_ee_list.append(pe_ee)
-    pe_h_list.append(pe_h)
-    pe_p_list.append(pe_p)
-energies = np.array(energies)
-E0 = energies[0]
-relative_energy_error = np.abs((energies - E0) / (np.abs(E0) + 1e-18))
+    plt.savefig(os.path.join(
+        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_momentum_modulus_vs_time_e.svg'
+    ))
 
 # --- Energy plot ---
 if PLOT_ENERGY:
@@ -246,9 +267,11 @@ if PLOT_ENERGY:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.yscale('symlog', linthresh=1e-10)
-    plt.ylim(0, 1)   # top=np.max(relative_energy_error)*1.1)
+    plt.ylim(0, 1)
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_vs_time.svg'))
+    plt.savefig(os.path.join(
+        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_vs_time.svg'
+    ))
 
 # --- Energy components plot ---
 if PLOT_COMPONENTS:
@@ -269,8 +292,9 @@ if PLOT_COMPONENTS:
     plt.legend(loc='best')
     plt.tight_layout()
     plt.ylim(-2,2)
-    # plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_components_vs_time.svg'))
+    plt.savefig(os.path.join(
+        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_components_vs_time.svg'
+    ))
 
 # %% --- Compute per-electron averages and deviations ---
 r_means, r_stds, p_means, p_stds = [], [], [], []
@@ -404,8 +428,10 @@ if PARTICLE_ENERGIES:
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.ylim(-5,2)
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_all_particle_energies_vs_time.svg'))
+    plt.ylim(np.min(E_pbar)*1.1, np.max(electron_energies)*1.1)
+    plt.savefig(os.path.join(
+        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_all_particle_energies_vs_time.svg'
+    ))
 
 # %% --- 3D Trajectory Animation (_gif) with time bar and antiproton ---
 if PLOT_GIF:
@@ -438,7 +464,6 @@ if PLOT_GIF:
     ax.set_zlabel('z (a.u.)', labelpad=30)
     ax.tick_params(axis='z', pad=12)
     ax.zaxis.label.set_verticalalignment('bottom')
-    ax.zaxis.set_label_coords(1.05, 0.5)
     ax.xaxis.set_label_coords(0.5, -0.12)
     ax.yaxis.set_label_coords(-0.15, 0.5)
     ax.legend()

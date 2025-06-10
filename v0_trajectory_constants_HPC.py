@@ -48,11 +48,12 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
-PLOT_POSITION = False
-PLOT_MOMENTUM = False
-PLOT_ENERGY = False
-PLOT_COMPONENTS = False
-PLOT_GIF = False
+PLOT_ID = "1"
+PLOT_POSITION = True
+PLOT_MOMENTUM = True
+PLOT_ENERGY = True
+PLOT_COMPONENTS = True
+PLOT_GIF = True
 PARTICLE_ENERGIES = True  # Plot particle energies
 N_FRAMES = T_STEP  # Number of frames for the GIF
 FPS = 30  # Frames per second for the GIF

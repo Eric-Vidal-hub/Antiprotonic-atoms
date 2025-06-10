@@ -346,98 +346,13 @@ def run_trajectory(ii):
         method='DOP853', rtol=1e-6, atol=1e-8
     )
 
-    # SOLUTION
-    yf = sol.y[:, -1]
-
-    # Extract initial position and momentum of electrons
-    rf_e = yf[:3 * e_num]
-    pf_e = yf[3 * e_num:-6]
-    # Ensure the vectors are 1D
-    rf_e = np.array(rf_e).flatten()
-    pf_e = np.array(pf_e).flatten()
-
-    # Extract final position and momentum of the antiproton
-    rf_pbar = yf[-6:-3]
-    pf_pbar = yf[-3:]
-    # Ensure the vectors are 1D
-    rf_pbar = np.array(rf_pbar).flatten()
-    pf_pbar = np.array(pf_pbar).flatten()
-
     # %% COMPUTE PBAR FINAL ENERGY AND ANGULAR MOMENTUM
-    # Final ang mom of the antiproton
-    Lf_pbar = np.linalg.norm(np.cross(rf_pbar, pf_pbar))
-
-    # Final energy of the antiproton
-    # One body potentials
-    norm_rf_pbar = np.linalg.norm(rf_pbar)
-    norm_pf_pbar = np.linalg.norm(pf_pbar)
-    kin_pbar = norm_pf_pbar**2 / (2 * M_STAR)
-    nuc_pbar = -ZZ / np.linalg.norm(rf_pbar)
-    heisenberg_pbar = (
-        (XI_H**2 / (4 * ALPHA_H * M_STAR * norm_rf_pbar**2)) *
-        np.exp(ALPHA_H * (1 - (norm_rf_pbar * norm_pf_pbar / XI_H)**4))
-    )
-    # Two body potentials
-    pair_pot_pbar = 0.0  # Coulomb potential between electrons
-
-    # COMPUTE ELECTRONS FINAL ENERGY and pbar term
-    bound_electrons = []
-    E_electrons = []
-
-    for ii in range(e_num):
-        rf_ei = rf_e[3 * ii:3 * (ii + 1)]
-        pf_ei = pf_e[3 * ii:3 * (ii + 1)]
-
-        norm_rf_ei = np.linalg.norm(rf_ei)
-        norm_pf_ei = np.linalg.norm(pf_ei)
-        kin_ei = norm_pf_ei**2 / 2.0
-        nuc_ei = -ZZ / norm_rf_ei
-        heisenberg_ei = (
-            (XI_H**2 / (4 * ALPHA_H * norm_rf_ei**2)) *
-            np.exp(ALPHA_H * (1 - (norm_rf_ei * norm_pf_ei / XI_H)**4))
-        )
-
-        # Electron-antiproton Coulomb
-        ei_pbar = np.linalg.norm(rf_ei - rf_pbar)
-        pot_pbar_ei = 1.0 / ei_pbar
-        pair_pot_pbar += pot_pbar_ei
-
-        # Electron-electron Coulomb and Pauli (sum only for j > ii to avoid double-counting)
-        pair_pot_ei = 0
-        pauli_pot = 0.0
-        if e_num > 1:
-            for j in range(ii + 1, e_num):
-                rf_ej = rf_e[3 * j:3 * (j + 1)]
-                delta_r = np.linalg.norm(rf_ei - rf_ej)
-                pair_pot_ei += 1.0 / delta_r
-                # Pauli term for identical spins
-                if e_spin[ii] == e_spin[j]:
-                    pf_ej = pf_e[3 * j:3 * (j + 1)]
-                    delta_p = np.linalg.norm(pf_ei - pf_ej)
-                    uu_p = (delta_r * delta_p / XI_P)**2
-                    pauli_arg_exp_p = uu_p**2
-                    if pauli_arg_exp_p > 100 and ALPHA_P * (1 - pauli_arg_exp_p) < -300:
-                        exp_pauli = 0.0
-                    elif ALPHA_P * (1 - pauli_arg_exp_p) > 300:
-                        exp_pauli = np.exp(300)
-                    else:
-                        exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                    pauli_pot += (XI_P**2 / (4 * ALPHA_P * delta_r**2)) * exp_pauli
-
-        Ef_ei = kin_ei + nuc_ei + heisenberg_ei + pair_pot_ei + pot_pbar_ei + pauli_pot
-        E_electrons.append(Ef_ei)
-
-        # %% CAPTURE CLASSIFICATION
-        bound_electrons.append(Ef_ei < 0)
-
-    # Final energy of the antiproton
-    Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
-
     # --- Compute time-dependent energies for the last 500 steps ---
     n_times = sol.y.shape[1]
     last_n = min(T_MEAN, n_times)
     electron_energies_time = [[] for _ in range(e_num)]
     E_pbar_time = []
+    L_pbar_time = []
 
     for idx in range(n_times - last_n, n_times):
         y = sol.y[:, idx]
@@ -484,6 +399,7 @@ def run_trajectory(ii):
             electron_energies_time[ii].append(Ef_ei)
         # Antiproton energy
         pf_pbar = y[-3:]
+        rf_pbar = y[-6:-3]
         norm_rf_pbar = np.linalg.norm(rf_pbar)
         norm_pf_pbar = np.linalg.norm(pf_pbar)
         kin_pbar = norm_pf_pbar**2 / (2 * M_STAR)
@@ -499,10 +415,12 @@ def run_trajectory(ii):
             pair_pot_pbar += 1.0 / (np.linalg.norm(rf_ei - rf_pbar))
         Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
         E_pbar_time.append(Ef_pbar)
+        L_pbar = np.linalg.norm(np.cross(rf_pbar, pf_pbar))
+        L_pbar_time.append(L_pbar)
 
-    # --- Use medians over last 500 steps for binding checks ---
     avg_electron_energies = [np.median(e_list) for e_list in electron_energies_time]
     avg_pbar_energy = np.median(E_pbar_time)
+    med_Lf_pbar = np.median(L_pbar_time)
 
     bound_electrons = [Eavg < 0 for Eavg in avg_electron_energies]
     bound_p = avg_pbar_energy < 0
@@ -517,7 +435,7 @@ def run_trajectory(ii):
         CAP_TYPE = 'none'
 
     INI_STATE = (E0, L_init, CAP_TYPE)
-    FINAL_STATE = (avg_pbar_energy, avg_electron_energies, Lf_pbar, CAP_TYPE)
+    FINAL_STATE = (avg_pbar_energy, avg_electron_energies, med_Lf_pbar, CAP_TYPE)
     return (CAP_TYPE, INI_STATE, FINAL_STATE)
 
 N_CHECK = 0
