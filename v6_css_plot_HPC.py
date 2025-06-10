@@ -62,17 +62,32 @@ else:
         )
         sigma_err = np.nan_to_num(sigma_err, nan=0.0, posinf=0.0, neginf=0.0)
 
+    MARKERSIZE = 8
+
     plt.figure()
     plt.errorbar(
         cross_all['Energy'], cross_all['Sigma_total'], yerr=sigma_err,
-        fmt='o-', label='Total', capsize=5, color='tab:blue', ecolor='black'
+        fmt='o-', label='Total', capsize=5, color='tab:blue', ecolor='black', markersize=MARKERSIZE
     )
     if 'He' in FILENAME:
-        plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single', color='tab:orange')
-        plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green')
+        plt.plot(cross_all['Energy'], cross_all['Sigma_single'], 's-', label='Single', color='tab:orange', markersize=MARKERSIZE)
+        plt.plot(cross_all['Energy'], cross_all['Sigma_double'], '^-', label='Double', color='tab:green', markersize=MARKERSIZE)
+        # --- Cohen Plot (PRA 62) data ---
+        cohen_csv = os.path.join(os.path.dirname(__file__), "cohen_pbar_he_capture_data_with_errors.csv")
+        if os.path.exists(cohen_csv):
+            cohen_df = pd.read_csv(cohen_csv)
+            plt.errorbar(
+                cohen_df["Energy_au"],
+                cohen_df["Sigma_Total_Capture_a02"],
+                yerr=cohen_df["Error_Sigma_Cap_a02"],
+                fmt='o', capsize=5, color='black', ecolor='gray',
+                label='Cohen PRA 62'
+            )
+        plt.xlim(0.05, 1.5)
+        plt.ylim(0, 25)
     else:
-        plt.plot(cross_all['Energy'], cross_all['Sigma_partial'], 's-', label='Partial', color='tab:orange')
-        plt.plot(cross_all['Energy'], cross_all['Sigma_full'], '^-', label='Full', color='tab:green')
+        plt.plot(cross_all['Energy'], cross_all['Sigma_partial'], 's-', label='Partial', color='tab:orange', markersize=MARKERSIZE)
+        plt.plot(cross_all['Energy'], cross_all['Sigma_full'], '^-', label='Full', color='tab:green', markersize=MARKERSIZE)
     plt.xlabel(r'$E_{0}$ (a.u.)')
     plt.ylabel(r'$\sigma_{cap}$ (a₀²)')
     plt.legend()
@@ -82,6 +97,20 @@ else:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
     plt.savefig(os.path.join(PLOTS_DIR, f'{os.path.basename(RESULTS_DIR)}_cross_sections_vs_energy.svg'))
+
+    # --- Add Cohen (PRA 62) data ---
+    cohen_csv = os.path.join(os.path.dirname(__file__), "cohen_pbar_he_capture_data_with_errors.csv")
+    if os.path.exists(cohen_csv):
+        cohen_df = pd.read_csv(cohen_csv)
+        plt.errorbar(
+            cohen_df["Energy_au"],
+            cohen_df["Sigma_Total_Capture_a02"],
+            yerr=cohen_df["Error_Sigma_Cap_a02"],
+            fmt='o', capsize=5, color='black', ecolor='gray',
+            label='Cohen PRA 62'
+        )
+    else:
+        print(f"Cohen data file not found: {cohen_csv}")
 
 # --- Plot 2: Initial (L_initial, E_initial) Distribution ---
 init_files = sorted(glob.glob(os.path.join(RESULTS_DIR, 'initial_states_E0_*.csv')))

@@ -13,7 +13,7 @@ XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
-XPBAR = 10.0           # Initial distance of antiproton (a.u.)
+XPBAR = 5.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 200          # Number of trajectories per energy
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
 T_MEAN = 500
@@ -45,4 +45,4 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 # + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC_median_more_time'.format(FILENAME, XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
