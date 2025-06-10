@@ -15,11 +15,11 @@ print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 # Simulation parameters
 XPBAR = 10.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 200          # Number of trajectories per energy
-T_STEP = 1000       # Time step (a.u.)
 T_MAX = 2500.0       # Maximum simulation time (a.u.)
-MIN_E = 0.1           # Minimum initial energy (a.u.)
-MAX_E = 0.5           # Maximum initial energy (a.u.)
-E_STEP = 3           # Number of energy steps
+T_MEAN = 500
+MIN_E = 0.01           # Minimum initial energy (a.u.)
+MAX_E = 1.5           # Maximum initial energy (a.u.)
+N_STEP = 16           # Number of energy steps
 BMAX_0 = 3.0            # Maximum impact parameter (a.u.)
 # If True, it determines B_MAX based on initial energy
 AUTO_BMAX = True
@@ -27,32 +27,20 @@ THRESH_1 = 2.3      # energy threshold for stepping b_max
 THRESH_2 = 1.2
 B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
-N_CHECK_MAX = 50  # Maximum number of checks for capture
-
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+# FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-DIRECTORY_ATOM = 'GS_alpha_HPC/' \
-                + FILENAME + '.csv'
-
+# DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+#                 + FILENAME + '.csv'
 # FILENAME = '02_He_03e'
+
 # DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
                 # + FILENAME + '.csv'
 # FILENAME = '02_He_01e'
-# FILENAME = '03_Li_02e'
-# DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
-#                 + FILENAME + '.csv'
+FILENAME = '03_Li_02e'
+DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
+                + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
-
-# Plot control flags
-PLOT_POSITION = False
-PLOT_MOMENTUM = False
-PLOT_ENERGY = False
-PLOT_COMPONENTS = False
-PLOT_GIF = False
-PARTICLE_ENERGIES = True  # Plot particle energies
-N_FRAMES = T_STEP  # Number of frames for the GIF
-FPS = 30  # Frames per second for the GIF
+RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))

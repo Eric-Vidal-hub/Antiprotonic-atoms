@@ -6,13 +6,13 @@ from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v0_trajectory_constants_HPC import (
     RESULTS_DIR, FILENAME, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
-    PLOT_GIF, N_FRAMES, FPS
+    PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR
 )
 import matplotlib.patches as patches
 
 
 
-def calculate_energies(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
+def calculate_energies(state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
     """
     Compute total and component energies for a given state vector,
     matching the logic in v0_trajectory_run_HPC.py.
@@ -27,7 +27,7 @@ def calculate_energies(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
 
     # Kinetic energies
     kin_e = np.sum([np.dot(p, p)/2.0 for p in p_e])
-    kin_pbar = np.dot(p_pbar, p_pbar)/(2*MU)
+    kin_pbar = np.dot(p_pbar, p_pbar)/(2*M_STAR)
     ke = kin_e + kin_pbar
 
     # Electron-nucleus
@@ -51,7 +51,7 @@ def calculate_energies(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
                     exp_pauli = np.exp(300)
                 else:
                     exp_pauli = np.exp(ALPHA_P * (1 - pauli_arg_exp_p))
-                pauli_pot += (XI_P**2 / (4 * ALPHA_P * (delta_r + 1e-18)**2)) * exp_pauli
+                pauli_pot += (XI_P**2 / (2 * ALPHA_P * (delta_r + 1e-18)**2)) * exp_pauli
 
     # Electron-antiproton
     pair_pot_pbar = 0.0
@@ -66,7 +66,7 @@ def calculate_energies(state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
         pe_h += (XI_H**2 / (4 * ALPHA_H * (r_mod**2 + 1e-18))) * np.exp(ALPHA_H * (1 - (r_mod * p_mod / XI_H)**4))
     r_pbar_mod = np.linalg.norm(r_pbar)
     p_pbar_mod = np.linalg.norm(p_pbar)
-    heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * MU * (r_pbar_mod**2 + 1e-18))) * np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
+    heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * M_STAR * (r_pbar_mod**2 + 1e-18))) * np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
     pe_h += heisenberg_pbar
 
     # Antiproton-nucleus
@@ -116,12 +116,12 @@ params = {key: float(val) for key, val in zip(header_cap, row_cap)}
 
 # Extract parameters for the run
 e_num = int(params['e_num'])
-MU = params.get('MU', 1.0)
-ZZ = params.get('p_num', 1.0)
-XI_H = params.get('XI_H', 1.0)
+ZZ = float(params['p_num'])
 ALPHA_H = params.get('ALPHA_H', 5.0)
-XI_P = params.get('XI_P', 2.767)
+XI_H = params.get('XI_H', 1.0 / (1 + 1 / (2 * ALPHA_H))**0.5)
 ALPHA_P = params.get('ALPHA_P', 5.0)
+XI_P = params.get('XI_P', 2.767 / (1 + 1 / (2 * ALPHA_P))**0.5)
+M_STAR = 1/((1/M_PBAR)+(1/(ZZ*M_PBAR)))
 
 # --- Find and read the trajectory file for time-dependent data ---
 traj_files = [f for f in os.listdir(output_dir) if f.startswith('trajectory_') and f.endswith('.csv')]
@@ -187,6 +187,7 @@ if PLOT_POSITION:
 # --- Plot modulus of momentum vs time (_e) ---
 if PLOT_MOMENTUM:
     plt.figure(figsize=(12, 8))
+    linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
     for i in range(e_num):
         p_mod = np.linalg.norm(p_e_arr[i, :, :], axis=0)
         plt.plot(
@@ -201,7 +202,7 @@ if PLOT_MOMENTUM:
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.ylim(np.min(p_pbar_mod)*0.9, np.max(p_pbar_mod)*1.1)
+    plt.ylim(np.min(p_mod)*0.9, np.max(p_mod)*2)
     plt.savefig(os.path.join(plots_dir, f'{FILENAME}_momentum_modulus_vs_time_e.svg'))
 
 # --- Compute all energies/components once ---
@@ -210,7 +211,7 @@ ke_list, pe_en_list, pe_ee_list, pe_h_list, pe_p_list = [], [], [], [], []
 for i_step in range(n_times):
     current_state = y_arr[:, i_step]
     E, ke, pe_en, pe_ee, pe_h, pe_p = calculate_energies(
-        current_state, MU, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
+        current_state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num
     )
     energies.append(E)
     ke_list.append(ke)
@@ -234,7 +235,7 @@ if PLOT_ENERGY:
         axis='both', which='both', direction='in', top=True, right=True
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
+    plt.ylim(-2,2)
 
     plt.subplot(1, 2, 2)
     plt.plot(t_arr, relative_energy_error, label='|Relative energy error|')
@@ -245,7 +246,7 @@ if PLOT_ENERGY:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.yscale('symlog', linthresh=1e-10)
-    plt.ylim(bottom=0, top=np.max(relative_energy_error)*1.1)
+    plt.ylim(0, 1)   # top=np.max(relative_energy_error)*1.1)
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_vs_time.svg'))
 
@@ -267,140 +268,9 @@ if PLOT_COMPONENTS:
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.legend(loc='best')
     plt.tight_layout()
-    plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
+    plt.ylim(-2,2)
+    # plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
     plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_components_vs_time.svg'))
-
-
-# %% --- Energy plot from y_arr and parameters in CSV ---
-# --- Energy plot ---
-if PLOT_ENERGY:
-    plt.close('all')
-    plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.plot(t_arr, energies, label='Total energy')
-    plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'$E(t)$ (a.u.)')
-    plt.tick_params(
-        axis='both', which='both', direction='in', top=True, right=True
-    )
-    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
-
-    plt.subplot(1, 2, 2)
-    plt.plot(t_arr, relative_energy_error, label='|Relative energy error|')
-    plt.xlabel('$t$ (a.u.)')
-    plt.ylabel('|E(t) - E(0)| / |E(0)|')
-    plt.tick_params(
-        axis='both', which='both', direction='in', top=True, right=True
-    )
-    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.yscale('symlog', linthresh=1e-10)
-    plt.ylim(bottom=0, top=np.max(relative_energy_error)*1.1)
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_vs_time.svg'))
-
-
-# --- Energy components plot ---
-if PLOT_COMPONENTS:
-    plt.close('all')
-    plt.figure(figsize=(10, 7))
-    plt.plot(t_arr, ke_list, label='Kinetic', linestyle='-', color='tab:blue')
-    plt.plot(t_arr, pe_en_list, label=r'$e^-$-nucleus', linestyle='--', color='tab:orange')
-    plt.plot(t_arr, pe_ee_list, label=r'$e^-$-$e^-$', linestyle='-.', color='tab:green')
-    plt.plot(t_arr, pe_h_list, label='Heisenberg', linestyle=':', color='tab:red')
-    plt.plot(t_arr, pe_p_list, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
-    plt.plot(t_arr, energies, label='Total', linestyle='-', color='gray', linewidth=3)
-    plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'$E_i(t)$ (a.u.)')
-    plt.tick_params(
-        axis='both', which='both', direction='in', top=True, right=True
-    )
-    plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.legend(loc='best')
-    plt.tight_layout()
-    plt.ylim(np.min(energies)*0.95, np.max(energies)*1.05)
-    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_energy_components_vs_time.svg'))
-
-
-# %% --- 3D Trajectory Animation (_gif) with time bar ---
-if PLOT_GIF:
-    # Use a smaller frame_step for smoother animation
-    frame_step = max(1, len(t_arr) // N_FRAMES)  # adjust as needed
-    frames = range(0, len(t_arr), frame_step)
-
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0]
-             for i in range(e_num)]
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    current_markers = [
-        ax.plot([], [], [], marker='o', markersize=16,
-                color=to_rgba(colors[i % len(colors)], 0.9),
-                markeredgecolor='black', linestyle='None', zorder=5)[0]
-        for i in range(e_num)
-    ]
-    inf_lim = -5.2
-    sup_lim = 5.2
-    ax.set_xlim(inf_lim, sup_lim)
-    ax.set_ylim(inf_lim, sup_lim)
-    ax.set_zlim(inf_lim, sup_lim)
-    ax.set_xlabel('x (a.u.)', labelpad=18)
-    ax.set_ylabel('y (a.u.)', labelpad=24)
-    ax.set_zlabel('z (a.u.)', labelpad=30)
-    ax.tick_params(axis='z', pad=12)
-    ax.zaxis.label.set_verticalalignment('bottom')
-    ax.zaxis.set_label_coords(1.05, 0.5)
-    ax.xaxis.set_label_coords(0.5, -0.12)
-    ax.yaxis.set_label_coords(-0.15, 0.5)
-    ax.legend()
-
-    # Add a time bar above the plot
-    bar_ax = fig.add_axes([0.15, 0.92, 0.7, 0.03])
-    bar_ax.set_xlim(t_arr[0], t_arr[-1])
-    bar_ax.set_ylim(0, 1)
-    bar_ax.axis('off')
-    bar_patch = patches.Rectangle((t_arr[0], 0), 0, 1, color='royalblue')
-    bar_ax.add_patch(bar_patch)
-    time_text = bar_ax.text(
-        0.5 * (t_arr[0] + t_arr[-1]), -1, '', va='center', ha='center',
-        fontsize=18, color='black'
-    )
-
-    def init():
-        for line in lines:
-            line.set_data([], [])
-            line.set_3d_properties([])
-        for marker in current_markers:
-            marker.set_data([], [])
-            marker.set_3d_properties([])
-        bar_patch.set_width(0)
-        time_text.set_text('')
-        return lines + current_markers + [bar_patch, time_text]
-
-    def animate(frame_idx):
-        frame = frames[frame_idx]
-        for i, line in enumerate(lines):
-            x = y_arr[3*i, :frame]
-            y = y_arr[3*i+1, :frame]
-            z = y_arr[3*i+2, :frame]
-            line.set_data(x, y)
-            line.set_3d_properties(z)
-            if frame > 0:
-                current_markers[i].set_data([x[-1]], [y[-1]])
-                current_markers[i].set_3d_properties([z[-1]])
-            else:
-                current_markers[i].set_data([], [])
-                current_markers[i].set_3d_properties([])
-        bar_patch.set_width(t_arr[frame] - t_arr[0])
-        time_text.set_text(f't = {t_arr[frame]:.2f} a.u.')
-        return lines + current_markers + [bar_patch, time_text]
-
-    ani = animation.FuncAnimation(
-        fig, animate, frames=len(frames), init_func=init,
-        interval=N_FRAMES / FPS, blit=True  # 60 FPS for smoothness
-    )
-    gif_path = os.path.join(plots_dir, f'{FILENAME}_trajectory_evolution.gif')
-    ani.save(gif_path, writer='pillow', fps=FPS)  # Save at 60 FPS for smooth playback
 
 # %% --- Compute per-electron averages and deviations ---
 r_means, r_stds, p_means, p_stds = [], [], [], []
@@ -472,92 +342,66 @@ with open(csv_out, "w", newline="") as f:
     f.write(f"Total Energy,{E_mean},{E_std}\n")
 print(f"Per-electron averages and deviations written to {csv_out}")
 
-# --- Plot modulus of antiproton position vs time ---
-if PLOT_POSITION:
-    r_pbar_vec = y_arr[-6:-3, :]  # shape (3, n_times)
+if PARTICLE_ENERGIES:
+    # --- Compute antiproton energy evolution ---
+    r_pbar_vec = y_arr[-6:-3, :]
+    p_pbar_vec = y_arr[-3:, :]
     r_pbar_mod = np.linalg.norm(r_pbar_vec, axis=0)
+    p_pbar_mod = np.linalg.norm(p_pbar_vec, axis=0)
+    kin_pbar = p_pbar_mod**2 / (2 * M_STAR)  # Use correct mass if different
+    nuc_pbar = -ZZ / (r_pbar_mod + 1e-18)
+    # Electron-antiproton interaction
+    pair_pot_pbar = np.zeros_like(r_pbar_mod)
+    for i in range(e_num):
+        r_e_vec = y_arr[3*i:3*(i+1), :]
+        pair_pot_pbar += 1.0 / (np.linalg.norm(r_e_vec - r_pbar_vec, axis=0) + 1e-18)
+    # Heisenberg term (optional, if you want to include)
+    heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * (r_pbar_mod**2 + 1e-18) * M_STAR)) * \
+        np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
+
+    E_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
+    print(f"Antiproton INITIAL energy: {E_pbar[0]:.8f} a.u. at t = {t_arr[0]:.2f} a.u.")
+    print(f"Antiproton FINAL energy: {E_pbar[-1]:.8f} a.u. at t = {t_arr[-1]:.2f} a.u.")
+    # compute the average energy of the antiproton during the last 500 time steps before the end of the simulation
+    if n_times > 500:
+        avg_pbar_energy = np.mean(E_pbar[-500:])
+        std_pbar_energy = np.std(E_pbar[-500:])
+    else:
+        avg_pbar_energy = np.mean(E_pbar)
+        std_pbar_energy = np.std(E_pbar)
+    print(f"Antiproton AVERAGE energy (last 500 steps): {avg_pbar_energy:.8f} ± {std_pbar_energy:.8e} a.u.")
+
+    # --- Compute electron energies (with antiproton interaction) ---
+    electron_energies = np.zeros((e_num, n_times))
+    for i in range(e_num):
+        r_e_vec = y_arr[3*i:3*(i+1), :]
+        p_e_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
+        r_e_mod = np.linalg.norm(r_e_vec, axis=0)
+        p_e_mod = np.linalg.norm(p_e_vec, axis=0)
+        kin_e = p_e_mod**2 / 2.0
+        nuc_e = -ZZ / (r_e_mod + 1e-18)
+        # Electron-antiproton interaction
+        r_epbar = np.linalg.norm(r_e_vec - r_pbar_vec, axis=0)
+        pot_epbar = 1.0 / (r_epbar + 1e-18)
+        # Heisenberg term (optional)
+        heisenberg_e = (XI_H**2 / (4 * ALPHA_H * (r_e_mod**2 + 1e-18))) * \
+            np.exp(ALPHA_H * (1 - (r_e_mod * p_e_mod / XI_H)**4))
+        # Electron-electron and Pauli terms can be added as needed
+        electron_energies[i, :] = kin_e + nuc_e + pot_epbar + heisenberg_e
+
+    # %% --- Plot all individual particle energies together ---
     plt.figure(figsize=(12, 8))
-    plt.plot(t_arr, r_pbar_mod, label='Antiproton', color='black', linestyle='-')
+    for i in range(e_num):
+        plt.plot(t_arr, electron_energies[i], label=f'Electron {i+1}')
+    plt.plot(t_arr, E_pbar, label='Antiproton', color='black', linestyle='-')
     plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'$|\vec{r}_{\bar{p}}|$ (a.u.)')
+    plt.ylabel(r'Particle energy (a.u.)')
+    plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'antiproton_position_modulus_vs_time.svg'))
-
-# --- Compute antiproton energy evolution ---
-r_pbar_vec = y_arr[-6:-3, :]
-p_pbar_vec = y_arr[-3:, :]
-r_pbar_mod = np.linalg.norm(r_pbar_vec, axis=0)
-p_pbar_mod = np.linalg.norm(p_pbar_vec, axis=0)
-kin_pbar = p_pbar_mod**2 / (2 * MU)  # Use correct mass if different
-nuc_pbar = -ZZ / (r_pbar_mod + 1e-18)
-# Electron-antiproton interaction
-pair_pot_pbar = np.zeros_like(r_pbar_mod)
-for i in range(e_num):
-    r_e_vec = y_arr[3*i:3*(i+1), :]
-    pair_pot_pbar += 1.0 / (np.linalg.norm(r_e_vec - r_pbar_vec, axis=0) + 1e-18)
-# Heisenberg term (optional, if you want to include)
-heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * (r_pbar_mod**2 + 1e-18) * MU)) * \
-    np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
-
-E_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
-
-plt.figure(figsize=(12, 8))
-plt.plot(t_arr, E_pbar, label='Antiproton energy', color='black')
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$E_{\bar{p}}(t)$ (a.u.)')
-plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.tight_layout()
-plt.savefig(os.path.join(output_dir, 'antiproton_energy_vs_time.svg'))
-
-# --- Compute electron energies (with antiproton interaction) ---
-electron_energies = np.zeros((e_num, n_times))
-for i in range(e_num):
-    r_e_vec = y_arr[3*i:3*(i+1), :]
-    p_e_vec = y_arr[3*e_num + 3*i:3*e_num + 3*(i+1), :]
-    r_e_mod = np.linalg.norm(r_e_vec, axis=0)
-    p_e_mod = np.linalg.norm(p_e_vec, axis=0)
-    kin_e = p_e_mod**2 / 2.0
-    nuc_e = -ZZ / (r_e_mod + 1e-18)
-    # Electron-antiproton interaction
-    r_epbar = np.linalg.norm(r_e_vec - r_pbar_vec, axis=0)
-    pot_epbar = 1.0 / (r_epbar + 1e-18)
-    # Heisenberg term (optional)
-    heisenberg_e = (XI_H**2 / (4 * ALPHA_H * (r_e_mod**2 + 1e-18))) * \
-        np.exp(ALPHA_H * (1 - (r_e_mod * p_e_mod / XI_H)**4))
-    # Electron-electron and Pauli terms can be added as needed
-    electron_energies[i, :] = kin_e + nuc_e + pot_epbar + heisenberg_e
-
-plt.figure(figsize=(12, 8))
-for i in range(e_num):
-    plt.plot(t_arr, electron_energies[i], label=f'Electron {i+1}')
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'$E_{e,i}(t)$ (a.u.)')
-plt.legend()
-plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.tight_layout()
-plt.ylim(np.min(electron_energies)*0.95, np.max(electron_energies)*1.05)
-plt.savefig(os.path.join(output_dir, 'electron_energies_vs_time.svg'))
-
-# --- Plot all individual particle energies together ---
-plt.figure(figsize=(12, 8))
-for i in range(e_num):
-    plt.plot(t_arr, electron_energies[i], label=f'Electron {i+1}')
-plt.plot(t_arr, E_pbar, label='Antiproton', color='black', linestyle='-')
-plt.xlabel(r'$t$ (a.u.)')
-plt.ylabel(r'Particle energy (a.u.)')
-plt.legend()
-plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
-plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-plt.tight_layout()
-plt.ylim(
-    min(np.min(electron_energies), np.min(E_pbar))*0.95,
-    max(np.max(electron_energies), np.max(E_pbar))*1.05
-)
-plt.savefig(os.path.join(output_dir, 'all_particle_energies_vs_time.svg'))
+    plt.ylim(-5,2)
+    plt.savefig(os.path.join(plots_dir, f'{FILENAME}_all_particle_energies_vs_time.svg'))
 
 # %% --- 3D Trajectory Animation (_gif) with time bar and antiproton ---
 if PLOT_GIF:
