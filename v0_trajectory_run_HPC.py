@@ -25,7 +25,7 @@ from v0_trajectory_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P,
                                          MIN_E, MAX_E, E_STEP, T_STEP, T_MAX,
                                          BMAX_0, XPBAR, DIRECTORY_ATOM, B1,
                                          B2, B3, AUTO_BMAX, THRESH_1, THRESH_2,
-                                         N_CHECK_MAX)
+                                         N_CHECK_MAX, T_MEAN)
 import time
 
 
@@ -485,3 +485,63 @@ while CAPTURE:
                 row += sol.y[-6:-3, idx].tolist()  # rpbar
                 row += sol.y[-3:, idx].tolist()    # ppbar
                 writer.writerow(row)
+
+# --- Robust antiproton bound check: median over last T_MEAN steps ---
+n_times = sol.y.shape[1]
+last_n = min(T_MEAN, n_times)
+E_pbar_time = []
+
+for idx in range(n_times - last_n, n_times):
+    y = sol.y[:, idx]
+    pf_pbar = y[-3:]
+    rf_pbar = y[-6:-3]
+    norm_rf_pbar = np.linalg.norm(rf_pbar)
+    norm_pf_pbar = np.linalg.norm(pf_pbar)
+    kin_pbar = norm_pf_pbar**2 / (2 * M_STAR)
+    nuc_pbar = -ZZ / norm_rf_pbar
+    heisenberg_pbar = (
+        (XI_H**2 / (4 * ALPHA_H * M_STAR * norm_rf_pbar**2)) *
+        np.exp(ALPHA_H * (1 - (norm_rf_pbar * norm_pf_pbar / XI_H)**4))
+    )
+    # Electron-antiproton Coulomb
+    pair_pot_pbar = 0.0
+    for ii in range(e_num):
+        rf_ei = y[3 * ii:3 * (ii + 1)]
+        pair_pot_pbar += 1.0 / (np.linalg.norm(rf_ei - rf_pbar))
+    Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
+    E_pbar_time.append(Ef_pbar)
+
+med_Ef_pbar = np.median(E_pbar_time)
+bound_p_median = med_Ef_pbar < 0
+
+if bound_p_median:
+    CAPTURE = False
+    print(f"Processed {N_CHECK} trajectories for E0 = {E0:.3f} a.u. ")
+    end_time = time.time()
+    print(f"Total simulation time: {end_time - start_time:.2f} seconds")
+
+    # Save positions and momenta at every time step
+    with open(os.path.join(DIRECTORY_PBAR, f'trajectory_{ID}.csv'), mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Header: time, electron positions/momenta, antiproton position/momentum
+        header = ['time']
+        for i in range(e_num):
+            header += [f're{i+1}_x', f're{i+1}_y', f're{i+1}_z']
+        for i in range(e_num):
+            header += [f'pe{i+1}_x', f'pe{i+1}_y', f'pe{i+1}_z']
+        header += ['rpbar_x', 'rpbar_y', 'rpbar_z', 'ppbar_x', 'ppbar_y', 'ppbar_z']
+        writer.writerow(header)
+
+        # Write data for each time step
+        for idx, t in enumerate(sol.t):
+            row = [t]
+            # Electron positions
+            for i in range(e_num):
+                row += sol.y[3*i:3*(i+1), idx].tolist()
+            # Electron momenta
+            for i in range(e_num):
+                row += sol.y[3*e_num + 3*i:3*e_num + 3*(i+1), idx].tolist()
+            # Antiproton position and momentum
+            row += sol.y[-6:-3, idx].tolist()  # rpbar
+            row += sol.y[-3:, idx].tolist()    # ppbar
+            writer.writerow(row)

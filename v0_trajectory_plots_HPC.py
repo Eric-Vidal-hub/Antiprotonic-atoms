@@ -6,7 +6,7 @@ from matplotlib import animation
 from matplotlib.colors import to_rgba
 from v0_trajectory_constants_HPC import (
     RESULTS_DIR, FILENAME, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
-    PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR, PLOT_ID,
+    PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR, PLOT_ID
 )
 import matplotlib.patches as patches
 
@@ -131,14 +131,12 @@ XI_P = params.get('XI_P', 2.767 / (1 + 1 / (2 * ALPHA_P))**0.5)
 M_STAR = 1/((1/M_PBAR)+(1/(ZZ*M_PBAR)))
 
 # --- Find and read the trajectory file for time-dependent data ---
-traj_files = [f for f in os.listdir(output_dir) if f.startswith('trajectory_') and f.endswith('.csv')]
-if not traj_files:
-    raise FileNotFoundError("No trajectory_{ID}.csv file found in the results directory.")
-csv_file = os.path.join(output_dir, traj_files[0])
-# Extract the ID from the filename
-traj_id = traj_files[0].split('_')[-1].split('.')[0]
+traj_file = os.path.join(output_dir, f'trajectory_{PLOT_ID}.csv')
+if not os.path.exists(traj_file):
+    raise FileNotFoundError(f"Trajectory file not found: {traj_file}")
+traj_id = PLOT_ID
 
-with open(csv_file, newline='', encoding='utf-8') as f:
+with open(traj_file, newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
     header = next(reader)
     data = np.array([[float(x) for x in row] for row in reader])
@@ -529,5 +527,8 @@ if PLOT_GIF:
         fig, animate, frames=len(frames), init_func=init,
         interval=N_FRAMES / FPS, blit=True
     )
-    gif_path = os.path.join(plots_dir, f'{FILENAME}_trajectory_evolution.gif')
+    gif_path = os.path.join(
+        plots_dir,
+        f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_trajectory_evolution.gif'
+    )
     ani.save(gif_path, writer='pillow', fps=FPS)
