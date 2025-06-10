@@ -371,6 +371,10 @@ if PARTICLE_ENERGIES:
         std_pbar_energy = np.std(E_pbar)
     print(f"Antiproton AVERAGE energy (last 500 steps): {avg_pbar_energy:.8f} ± {std_pbar_energy:.8e} a.u.")
 
+    # Compute the median energy of the antiproton
+    median_pbar_energy = np.median(E_pbar)
+    print(f"Antiproton MEDIAN energy: {median_pbar_energy:.8f} a.u.")
+
     # --- Compute electron energies (with antiproton interaction) ---
     electron_energies = np.zeros((e_num, n_times))
     for i in range(e_num):

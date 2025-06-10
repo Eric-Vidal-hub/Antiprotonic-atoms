@@ -500,9 +500,9 @@ def run_trajectory(ii):
         Ef_pbar = kin_pbar + nuc_pbar + pair_pot_pbar + heisenberg_pbar
         E_pbar_time.append(Ef_pbar)
 
-    # --- Use averages over last 500 steps for binding checks ---
-    avg_electron_energies = [np.mean(e_list) for e_list in electron_energies_time]
-    avg_pbar_energy = np.mean(E_pbar_time)
+    # --- Use medians over last 500 steps for binding checks ---
+    avg_electron_energies = [np.median(e_list) for e_list in electron_energies_time]
+    avg_pbar_energy = np.median(E_pbar_time)
 
     bound_electrons = [Eavg < 0 for Eavg in avg_electron_energies]
     bound_p = avg_pbar_energy < 0
