@@ -24,7 +24,7 @@ from scipy.integrate import solve_ivp
 from v6_ccs_FMD_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_E, MAX_E,
                                   N_STEP, N_TRAJ, T_MAX, BMAX_0, XPBAR,
                                   DIRECTORY_ATOM, B1, B2, B3,
-                                  AUTO_BMAX, THRESH_1, THRESH_2, v5_ccs_FMD_constants_HPC.py v5_ccs_run_HPC.py v5_css_plot_HPC.py)
+                                  AUTO_BMAX, THRESH_1, THRESH_2, T_MEAN)
 import concurrent.futures
 import time
 
@@ -435,7 +435,7 @@ def run_trajectory(ii):
 
     # --- Compute time-dependent energies for the last 500 steps ---
     n_times = sol.y.shape[1]
-    last_n = min(500, n_times)
+    last_n = min(T_MEAN, n_times)
     electron_energies_time = [[] for _ in range(e_num)]
     E_pbar_time = []
 

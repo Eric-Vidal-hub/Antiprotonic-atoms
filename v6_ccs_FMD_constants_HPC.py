@@ -17,6 +17,8 @@ XPBAR = 10.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 200          # Number of trajectories per energy
 T_MAX = 2500.0       # Maximum simulation time (a.u.)
 T_MEAN = 500
+if T_MAX < T_MEAN:
+    raise ValueError("T_MAX must be greater than T_MEAN")
 MIN_E = 0.01           # Minimum initial energy (a.u.)
 MAX_E = 1.5           # Maximum initial energy (a.u.)
 N_STEP = 16           # Number of energy steps
