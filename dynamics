@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --array=0-15
-#SBATCH --cpus-per-task=24
+#SBATCH --cpus-per-task=16
 #SBATCH --time=30:00:00
-#SBATCH -p skylake-96
+#SBATCH -p epyc-256
 
 module load anaconda3/latest
 
