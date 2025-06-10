@@ -31,8 +31,8 @@ B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
-# FILENAME = '03_Li_03e'
+# FILENAME = '02_He_02e'
+FILENAME = '03_Li_03e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 # FILENAME = '02_He_03e'
@@ -45,4 +45,4 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 # + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC_avg'.format(FILENAME, XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))

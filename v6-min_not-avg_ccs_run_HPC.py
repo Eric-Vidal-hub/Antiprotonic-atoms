@@ -418,12 +418,12 @@ def run_trajectory(ii):
         L_pbar = np.linalg.norm(np.cross(rf_pbar, pf_pbar))
         L_pbar_time.append(L_pbar)
 
-    avg_electron_energies = [np.median(e_list) for e_list in electron_energies_time]
-    avg_pbar_energy = np.median(E_pbar_time)
-    med_Lf_pbar = np.median(L_pbar_time)
+    min_electron_energies = [np.min(e_list) for e_list in electron_energies_time]
+    min_pbar_energy = np.min(E_pbar_time)
+    min_Lf_pbar = np.min(L_pbar_time)
 
-    bound_electrons = [Eavg < 0 for Eavg in avg_electron_energies]
-    bound_p = avg_pbar_energy < 0
+    bound_electrons = [Eavg < 0 for Eavg in min_electron_energies]
+    bound_p = min_pbar_energy < 0
 
 
 
@@ -437,7 +437,7 @@ def run_trajectory(ii):
         CAP_TYPE = 'none'
 
     INI_STATE = (E0, L_init, CAP_TYPE)
-    FINAL_STATE = (avg_pbar_energy, avg_electron_energies, med_Lf_pbar, CAP_TYPE)
+    FINAL_STATE = (min_pbar_energy, min_electron_energies, min_Lf_pbar, CAP_TYPE)
     return (CAP_TYPE, INI_STATE, FINAL_STATE)
 
 N_CHECK = 0
