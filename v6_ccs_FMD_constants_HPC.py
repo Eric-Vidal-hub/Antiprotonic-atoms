@@ -45,4 +45,4 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 # + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC_avg'.format(FILENAME, XPBAR, int(N_TRAJ))
