@@ -13,7 +13,7 @@ XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
-XPBAR = 5.0           # Initial distance of antiproton (a.u.)
+XPBAR = 10.0           # Initial distance of antiproton (a.u.)
 N_TRAJ = 200          # Number of trajectories per energy
 T_MAX = 25000.0       # Maximum simulation time (a.u.)
 T_MEAN = 500
