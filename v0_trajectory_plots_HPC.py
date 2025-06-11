@@ -441,7 +441,7 @@ if PLOT_GIF:
     lines = [ax.plot([], [], [], label=f'Electron {i+1}')[0]
              for i in range(e_num)]
     # Add antiproton line
-    pbar_line = ax.plot([], [], [], label='Antiproton', color='black', linewidth=2)[0]
+    pbar_line = ax.plot([], [], [], label='Antiproton', color='purple', linewidth=2)[0]
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     current_markers = [
         ax.plot([], [], [], marker='o', markersize=16,
@@ -451,7 +451,27 @@ if PLOT_GIF:
     ]
     # Antiproton marker
     pbar_marker = ax.plot([], [], [], marker='o', markersize=18,
-                          color='black', markeredgecolor='yellow', linestyle='None', zorder=6)[0]
+                          color='purple', markeredgecolor='yellow', linestyle='None', zorder=6)[0]
+
+    # --- Add nucleus as a ball at the origin ---
+    nucleus_radius = 0.4
+    u = np.linspace(0, 2 * np.pi, 30)
+    v = np.linspace(0, np.pi, 30)
+    x_nucleus = nucleus_radius * np.outer(np.cos(u), np.sin(v))
+    y_nucleus = nucleus_radius * np.outer(np.sin(u), np.sin(v))
+    z_nucleus = nucleus_radius * np.outer(np.ones_like(u), np.cos(v))
+    ax.plot_surface(
+        x_nucleus, y_nucleus, z_nucleus, color='gold', alpha=0.7, zorder=0, linewidth=0
+    )
+
+    # --- Add nucleus label ---
+    elements = ["H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne"]
+    element = elements[e_num - 1] if 1 <= e_num <= len(elements) else f"Z{e_num}"
+    ax.text(
+        0, 0, nucleus_radius + 0.5, element,
+        color='black', fontsize=24, ha='center', va='bottom', weight='bold'
+    )
+
     inf_lim = -5.2
     sup_lim = 5.2
     ax.set_xlim(inf_lim, sup_lim)
