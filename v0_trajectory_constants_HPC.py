@@ -50,7 +50,7 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
-PLOT_ID = "0"
+PLOT_ID = "2"
 PLOT_POSITION = True
 PLOT_MOMENTUM = True
 PLOT_ENERGY = True

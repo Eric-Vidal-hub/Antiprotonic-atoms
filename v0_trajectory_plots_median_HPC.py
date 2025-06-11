@@ -4,7 +4,7 @@ import os
 import csv
 
 # --- User parameters ---
-AVG_DT = 50.0  # Averaging interval in a.u.
+MEDIAN_DT = 50.0  # Averaging interval in a.u.
 
 # --- Load your constants as in your main plot script ---
 from v0_trajectory_constants_HPC import (
@@ -259,20 +259,20 @@ if PLOT_POSITION:
     linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
     for i in range(e_num):
         r_mod = np.linalg.norm(r_e_arr[i, :, :], axis=0)
-        t_bin, r_bin = bin_average(t_arr, r_mod, AVG_DT)
-        plt.plot(t_bin, r_bin, label=f'Electron {i+1}', linestyle=linestyles[i % len(linestyles)])
+        t_bin, r_bin = bin_average(t_arr, r_mod, MEDIAN_DT)
+        plt.plot(t_bin, r_bin, marker='o', label=f'Electron {i+1}', linestyle=linestyles[i % len(linestyles)])
     r_pbar_mod = np.linalg.norm(r_pbar_arr, axis=0)
-    t_bin, r_bin = bin_average(t_arr, r_pbar_mod, AVG_DT)
-    plt.plot(t_bin, r_bin, label='Antiproton', color='black', linestyle='-')
+    t_bin, r_bin = bin_average(t_arr, r_pbar_mod, MEDIAN_DT)
+    plt.plot(t_bin, r_bin, marker='o', linestyle='-', label='Antiproton', color='black')
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
     plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.ylim(np.min(r_pbar_mod)*0.9, np.max(r_pbar_mod)*1.1)
+    plt.ylim(np.min(r_pbar_mod)*1.1, np.max(r_pbar_mod)*1.1)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_position_modulus_vs_time_r.svg'
+        plots_dir, f'{FILENAME}_median_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_position_modulus_vs_time_r.svg'
     ))
 
 # --- Plot modulus of momentum vs time (_e) ---
@@ -281,20 +281,20 @@ if PLOT_MOMENTUM:
     linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
     for i in range(e_num):
         p_mod = np.linalg.norm(p_e_arr[i, :, :], axis=0)
-        t_bin, p_bin = bin_average(t_arr, p_mod, AVG_DT)
-        plt.plot(t_bin, p_bin, label=f'Electron {i+1}', linestyle=linestyles[i % len(linestyles)])
+        t_bin, p_bin = bin_average(t_arr, p_mod, MEDIAN_DT)
+        plt.plot(t_bin, p_bin, marker='o', label=f'Electron {i+1}', linestyle=linestyles[i % len(linestyles)])
     p_pbar_mod = np.linalg.norm(p_pbar_arr, axis=0)
-    t_bin, p_bin = bin_average(t_arr, p_pbar_mod, AVG_DT)
-    plt.plot(t_bin, p_bin, label='Antiproton', color='black', linestyle='-')
+    t_bin, p_bin = bin_average(t_arr, p_pbar_mod, MEDIAN_DT)
+    plt.plot(t_bin, p_bin, marker='o', linestyle='-', label='Antiproton', color='black')
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'$|\vec{p}_i|$ (a.u.)')
     plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.ylim(np.min(p_mod)*0.9, np.max(p_mod)*2)
+    # plt.ylim(np.min(p_mod)*0.9, np.max(p_mod)*2)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_momentum_modulus_vs_time_e.svg'
+        plots_dir, f'{FILENAME}_median_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_momentum_modulus_vs_time_e.svg'
     ))
 
 # --- Energy plot ---
@@ -302,19 +302,19 @@ if PLOT_ENERGY:
     plt.close('all')
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 2, 1)
-    t_bin, e_bin = bin_average(t_arr, energies, AVG_DT)
-    plt.plot(t_bin, e_bin, label='Total energy')
+    t_bin, e_bin = bin_average(t_arr, energies, MEDIAN_DT)
+    plt.plot(t_bin, e_bin, marker='o', linestyle='-', label='Total energy')
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'$E(t)$ (a.u.)')
     plt.tick_params(
         axis='both', which='both', direction='in', top=True, right=True
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.ylim(-2,2)
+    # plt.ylim(-2,2)
 
     plt.subplot(1, 2, 2)
-    t_bin, rel_bin = bin_average(t_arr, relative_energy_error, AVG_DT)
-    plt.plot(t_bin, rel_bin, label='|Relative energy error|')
+    t_bin, rel_bin = bin_average(t_arr, relative_energy_error, MEDIAN_DT)
+    plt.plot(t_bin, rel_bin, marker='o', linestyle='-', label='|Relative energy error|')
     plt.xlabel('$t$ (a.u.)')
     plt.ylabel('|E(t) - E(0)| / |E(0)|')
     plt.tick_params(
@@ -322,39 +322,59 @@ if PLOT_ENERGY:
     )
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.yscale('symlog', linthresh=1e-10)
-    plt.ylim(0, 1)
+    # plt.ylim(0, 1)
     plt.tight_layout()
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_vs_time.svg'
+        plots_dir, f'{FILENAME}_median_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_vs_time.svg'
     ))
 
-# --- Energy components plot ---
+# --- Energy components plot with antiproton terms and legend outside ---
 if PLOT_COMPONENTS:
     plt.close('all')
     plt.figure(figsize=(10, 7))
-    t_bin, ke_bin = bin_average(t_arr, ke_list, AVG_DT)
-    t_bin, pe_en_bin = bin_average(t_arr, pe_en_list, AVG_DT)
-    t_bin, pe_ee_bin = bin_average(t_arr, pe_ee_list, AVG_DT)
-    t_bin, pe_h_bin = bin_average(t_arr, pe_h_list, AVG_DT)
-    t_bin, pe_p_bin = bin_average(t_arr, pe_p_list, AVG_DT)
-    t_bin, e_bin = bin_average(t_arr, energies, AVG_DT)
-    plt.plot(t_bin, ke_bin, label='Kinetic', linestyle='-', color='tab:blue')
-    plt.plot(t_bin, pe_en_bin, label=r'$e^-$-nucleus', linestyle='--', color='tab:orange')
-    plt.plot(t_bin, pe_ee_bin, label=r'$e^-$-$e^-$', linestyle='-.', color='tab:green')
-    plt.plot(t_bin, pe_h_bin, label='Heisenberg', linestyle=':', color='tab:red')
-    plt.plot(t_bin, pe_p_bin, label='Pauli', linestyle=(0, (3, 1, 1, 1)), color='tab:purple')
-    plt.plot(t_bin, e_bin, label='Total', linestyle='-', color='gray', linewidth=3)
+    t_bin, ke_bin = bin_average(t_arr, ke_list, MEDIAN_DT)
+    t_bin, pe_en_bin = bin_average(t_arr, pe_en_list, MEDIAN_DT)
+    t_bin, pe_ee_bin = bin_average(t_arr, pe_ee_list, MEDIAN_DT)
+    t_bin, pe_h_bin = bin_average(t_arr, pe_h_list, MEDIAN_DT)
+    t_bin, pe_p_bin = bin_average(t_arr, pe_p_list, MEDIAN_DT)
+    t_bin, e_bin = bin_average(t_arr, energies, MEDIAN_DT)
+    # Antiproton terms
+    r_pbar_vec = y_arr[-6:-3, :]
+    p_pbar_vec = y_arr[-3:, :]
+    r_pbar_mod = np.linalg.norm(r_pbar_vec, axis=0)
+    p_pbar_mod = np.linalg.norm(p_pbar_vec, axis=0)
+    kin_pbar = p_pbar_mod**2 / (2 * M_STAR)
+    nuc_pbar = -ZZ / (r_pbar_mod + 1e-18)
+    pair_pot_pbar = np.zeros_like(r_pbar_mod)
+    for i in range(e_num):
+        r_e_vec = y_arr[3*i:3*(i+1), :]
+        pair_pot_pbar += 1.0 / (np.linalg.norm(r_e_vec - r_pbar_vec, axis=0) + 1e-18)
+    heisenberg_pbar = (XI_H**2 / (4 * ALPHA_H * (r_pbar_mod**2 + 1e-18) * M_STAR)) * \
+        np.exp(ALPHA_H * (1 - (r_pbar_mod * p_pbar_mod / XI_H)**4))
+    t_bin, kin_pbar_bin = bin_average(t_arr, kin_pbar, MEDIAN_DT)
+    t_bin, nuc_pbar_bin = bin_average(t_arr, nuc_pbar, MEDIAN_DT)
+    t_bin, pair_pot_pbar_bin = bin_average(t_arr, pair_pot_pbar, MEDIAN_DT)
+    t_bin, heisenberg_pbar_bin = bin_average(t_arr, heisenberg_pbar, MEDIAN_DT)
+    # Plot all with markers and lines
+    plt.plot(t_bin, ke_bin, marker='o', linestyle='-', label='Kinetic (all)', color='tab:blue')
+    plt.plot(t_bin, pe_en_bin, marker='o', linestyle='-', label=r'$e^-$-nucleus', color='tab:orange')
+    plt.plot(t_bin, pe_ee_bin, marker='o', linestyle='-', label=r'$e^-$-$e^-$', color='tab:green')
+    plt.plot(t_bin, pe_h_bin, marker='o', linestyle='-', label='Heisenberg (all)', color='tab:red')
+    plt.plot(t_bin, pe_p_bin, marker='o', linestyle='-', label='Pauli', color='tab:purple')
+    plt.plot(t_bin, kin_pbar_bin, marker='s', linestyle='-', label='Kinetic (pbar)', color='indigo')
+    plt.plot(t_bin, nuc_pbar_bin, marker='^', linestyle='-', label='Nucleus (pbar)', color='brown')
+    plt.plot(t_bin, pair_pot_pbar_bin, marker='v', linestyle='-', label='e-pbar Coulomb', color='black')
+    plt.plot(t_bin, heisenberg_pbar_bin, marker='D', linestyle='-', label='Heisenberg (pbar)', color='goldenrod')
+    plt.plot(t_bin, e_bin, marker='*', linestyle='-', label='Total', color='gray', markersize=12)
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'$E_i(t)$ (a.u.)')
-    plt.tick_params(
-        axis='both', which='both', direction='in', top=True, right=True
-    )
+    plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
-    plt.legend(loc='best')
+    plt.legend(loc='center left', bbox_to_anchor=(1.04, 0.5), borderaxespad=0)
     plt.tight_layout()
-    plt.ylim(-2,2)
+    # plt.ylim(-2, 2)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_components_vs_time.svg'
+        plots_dir, f'{FILENAME}_median_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_components_vs_time.svg'
     ))
 
 # %% --- Compute per-electron averages and deviations ---
@@ -412,7 +432,6 @@ csv_out = os.path.join(
 )
 with open(csv_out, "w", newline="") as f:
     f.write(f"# Element: {element}, Time interval: {time_interval:.2f} a.u.\n")
-with open(csv_out, "w", newline="") as f:
     f.write("electron,r_mean,r_std,p_mean,p_std\n")
     for i in range(e_num):
         f.write(f"{i+1},{r_means[i]},{r_stds[i]},{p_means[i]},{p_stds[i]}\n")
@@ -449,12 +468,12 @@ if PARTICLE_ENERGIES:
     print(f"Antiproton FINAL energy: {E_pbar[-1]:.8f} a.u. at t = {t_arr[-1]:.2f} a.u.")
     # compute the average energy of the antiproton during the last 500 time steps before the end of the simulation
     if n_times > 500:
-        avg_pbar_energy = np.mean(E_pbar[-500:])
+        median_pbar_energy = np.mean(E_pbar[-500:])
         std_pbar_energy = np.std(E_pbar[-500:])
     else:
-        avg_pbar_energy = np.mean(E_pbar)
+        median_pbar_energy = np.mean(E_pbar)
         std_pbar_energy = np.std(E_pbar)
-    print(f"Antiproton AVERAGE energy (last 500 steps): {avg_pbar_energy:.8f} ± {std_pbar_energy:.8e} a.u.")
+    print(f"Antiproton AVERAGE energy (last 500 steps): {median_pbar_energy:.8f} ± {std_pbar_energy:.8e} a.u.")
 
     # Compute the median energy of the antiproton
     median_pbar_energy = np.median(E_pbar)
@@ -481,17 +500,17 @@ if PARTICLE_ENERGIES:
     # %% --- Plot all individual particle energies together ---
     plt.figure(figsize=(12, 8))
     for i in range(e_num):
-        t_bin, e_bin = bin_average(t_arr, electron_energies[i], AVG_DT)
-        plt.plot(t_bin, e_bin, label=f'Electron {i+1}')
-    t_bin, pbar_bin = bin_average(t_arr, E_pbar, AVG_DT)
-    plt.plot(t_bin, pbar_bin, label='Antiproton', color='black', linestyle='-')
+        t_bin, e_bin = bin_average(t_arr, electron_energies[i], MEDIAN_DT)
+        plt.plot(t_bin, e_bin, marker='o', linestyle='-', label=f'Electron {i+1}')
+    t_bin, pbar_bin = bin_average(t_arr, E_pbar, MEDIAN_DT)
+    plt.plot(t_bin, pbar_bin, marker='o', linestyle='-', label='Antiproton', color='black')
     plt.xlabel(r'$t$ (a.u.)')
     plt.ylabel(r'Particle energy (a.u.)')
     plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.tight_layout()
-    plt.ylim(np.min(E_pbar)*1.1, np.max(electron_energies)*1.1)
+    # plt.ylim(np.min(E_pbar)*1.1, np.max(electron_energies)*1.1)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_all_particle_energies_vs_time.svg'
+        plots_dir, f'{FILENAME}_median_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_all_particle_energies_vs_time.svg'
     ))
