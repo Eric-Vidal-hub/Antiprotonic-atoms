@@ -59,7 +59,7 @@ def bin_average(t_arr, arr, dt):
         mask = digitized == i
         if np.any(mask):
             t_binned.append(np.mean(t_arr[mask]))
-            arr_binned.append(np.mean(arr[mask], axis=-1) if arr.ndim > 1 else np.mean(arr[mask]))
+            arr_binned.append(np.median(arr[mask], axis=-1) if arr.ndim > 1 else np.median(arr[mask]))
     return np.array(t_binned), np.array(arr_binned)
 
 
@@ -179,7 +179,7 @@ ALPHA_H = params.get('ALPHA_H', 5.0)
 XI_H = params.get('XI_H', 1.0 / (1 + 1 / (2 * ALPHA_H))**0.5)
 ALPHA_P = params.get('ALPHA_P', 5.0)
 XI_P = params.get('XI_P', 2.767 / (1 + 1 / (2 * ALPHA_P))**0.5)
-M_STAR = 1/((1/M_PBAR)+(1/(ZZ*M_PBAR))**0.5)
+M_STAR = 1/((1/M_PBAR)+(1/(ZZ*M_PBAR)))
 
 # --- Find and read the trajectory file for time-dependent data ---
 traj_file = os.path.join(output_dir, f'trajectory_{PLOT_ID}.csv')
@@ -272,7 +272,7 @@ if PLOT_POSITION:
     plt.tight_layout()
     plt.ylim(np.min(r_pbar_mod)*0.9, np.max(r_pbar_mod)*1.1)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_position_modulus_vs_time_r.svg'
+        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_position_modulus_vs_time_r.svg'
     ))
 
 # --- Plot modulus of momentum vs time (_e) ---
@@ -294,7 +294,7 @@ if PLOT_MOMENTUM:
     plt.tight_layout()
     plt.ylim(np.min(p_mod)*0.9, np.max(p_mod)*2)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_momentum_modulus_vs_time_e.svg'
+        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_momentum_modulus_vs_time_e.svg'
     ))
 
 # --- Energy plot ---
@@ -325,7 +325,7 @@ if PLOT_ENERGY:
     plt.ylim(0, 1)
     plt.tight_layout()
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_vs_time.svg'
+        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_vs_time.svg'
     ))
 
 # --- Energy components plot ---
@@ -354,7 +354,7 @@ if PLOT_COMPONENTS:
     plt.tight_layout()
     plt.ylim(-2,2)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_components_vs_time.svg'
+        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_energy_components_vs_time.svg'
     ))
 
 # %% --- Compute per-electron averages and deviations ---
@@ -493,5 +493,5 @@ if PARTICLE_ENERGIES:
     plt.tight_layout()
     plt.ylim(np.min(E_pbar)*1.1, np.max(electron_energies)*1.1)
     plt.savefig(os.path.join(
-        plots_dir, f'{FILENAME}_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_all_particle_energies_vs_time.svg'
+        plots_dir, f'{FILENAME}_avg_E0{Kpbar_str}_capture{capture_id}_traj{traj_id}_all_particle_energies_vs_time.svg'
     ))

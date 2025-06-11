@@ -11,7 +11,6 @@ from v0_trajectory_constants_HPC import (
 import matplotlib.patches as patches
 
 
-
 def calculate_energies(state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
     """
     Compute total and component energies for a given state vector,
