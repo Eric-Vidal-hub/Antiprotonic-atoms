@@ -32,8 +32,9 @@ N_CHECK_MAX = 50  # Maximum number of checks for capture
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-FILENAME = '02_He_02e'
+# FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
+FILENAME = '04_Be_04e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 
@@ -50,11 +51,11 @@ RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
 PLOT_ID = "0"
-PLOT_POSITION = False
-PLOT_MOMENTUM = False
-PLOT_ENERGY = False
-PLOT_COMPONENTS = False
+PLOT_POSITION = True
+PLOT_MOMENTUM = True
+PLOT_ENERGY = True
+PLOT_COMPONENTS = True
 PLOT_GIF = True
-PARTICLE_ENERGIES = False  # Plot particle energies
+PARTICLE_ENERGIES = True  # Plot particle energies
 N_FRAMES = T_STEP  # Number of frames for the GIF
 FPS = 30  # Frames per second for the GIF

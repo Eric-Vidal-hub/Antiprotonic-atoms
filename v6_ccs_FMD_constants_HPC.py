@@ -32,7 +32,8 @@ B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 # LOADING THE GS ATOM
 # Define the directory and file name
 # FILENAME = '02_He_02e'
-FILENAME = '03_Li_03e'
+# FILENAME = '03_Li_03e'
+FILENAME = '04_Be_04e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 

@@ -20,16 +20,17 @@ N_STEP = 1000       # Number of evaluation time steps
 # Define the directory and file name
 # FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-# DIRECTORY_ATOM = 'GS_alpha_HPC/' \
-#                 + FILENAME + '.csv'
+FILENAME = '04_Be_04e'
+DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+                + FILENAME + '.csv'
 # FILENAME = '02_He_03e'
 
 # DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
                 # + FILENAME + '.csv'
 # FILENAME = '02_He_01e'
-FILENAME = '03_Li_02e'
-DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
-                + FILENAME + '.csv'
+# FILENAME = '03_Li_02e'
+# DIRECTORY_ATOM = 'GS_alpha_pos_ions_HPC/' \
+#                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
 RESULTS_DIR = 'EVO_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
