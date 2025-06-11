@@ -32,9 +32,9 @@ N_CHECK_MAX = 50  # Maximum number of checks for capture
 
 # LOADING THE GS ATOM
 # Define the directory and file name
-# FILENAME = '02_He_02e'
+FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-FILENAME = '04_Be_04e'
+# FILENAME = '04_Be_04e'
 DIRECTORY_ATOM = 'GS_alpha_HPC/' \
                 + FILENAME + '.csv'
 
