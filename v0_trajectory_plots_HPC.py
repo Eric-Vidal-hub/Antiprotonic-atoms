@@ -2,13 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import csv
-from matplotlib import animation
+from matplotlib import animation, markers
 from matplotlib.colors import to_rgba
 from v0_trajectory_constants_HPC import (
     RESULTS_DIR, FILENAME, PLOT_POSITION, PLOT_MOMENTUM, PLOT_ENERGY, PLOT_COMPONENTS,
     PLOT_GIF, N_FRAMES, FPS, PARTICLE_ENERGIES, M_PBAR, PLOT_ID
 )
 import matplotlib.patches as patches
+
+from v6_ccs_plot_HPC import MARKERSIZE
 
 
 def calculate_energies(state, M_STAR, ZZ, XI_H, ALPHA_H, XI_P, ALPHA_P, e_num):
@@ -197,18 +199,22 @@ Kpbar_str = f"{E0_pbar_kin:+.4f}".replace('.', 'p').replace('-', 'm').replace('+
 
 # --- Plot modulus of position vs time (_r) ---
 if PLOT_POSITION:
+    MARKERSIZE = 4.5
     plt.figure(figsize=(12, 8))
     linestyles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (1, 1))]
+    markers = ['o', 's', '^', 'D', 'x', 'v']
     for i in range(e_num):
         r_mod = np.linalg.norm(r_e_arr[i, :, :], axis=0)
         plt.plot(
             t_arr, r_mod, label=f'Electron {i+1}',
-            linestyle=linestyles[i % len(linestyles)]
+            linestyle=linestyles[i % len(linestyles)], 
+            marker=markers[i % len(markers)], markersize=MARKERSIZE
         )
     r_pbar_mod = np.linalg.norm(r_pbar_arr, axis=0)
-    plt.plot(t_arr, r_pbar_mod, label='Antiproton', color='black', linestyle='-')
+    plt.plot(t_arr, r_pbar_mod, label='Antiproton', color='purple',
+             linestyle='-', marker='o', markersize=MARKERSIZE)
     plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'$|\vec{r}_i|$ (a.u.)')
+    plt.ylabel(r'$r_i$ (a.u.)')
     plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
