@@ -331,7 +331,7 @@ if PLOT_ENERGY:
 # --- Energy components plot with antiproton terms and legend outside ---
 if PLOT_COMPONENTS:
     plt.close('all')
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(16, 8))
     t_bin, ke_bin = bin_average(t_arr, ke_list, MEDIAN_DT)
     t_bin, pe_en_bin = bin_average(t_arr, pe_en_list, MEDIAN_DT)
     t_bin, pe_ee_bin = bin_average(t_arr, pe_ee_list, MEDIAN_DT)
@@ -367,7 +367,7 @@ if PLOT_COMPONENTS:
     plt.plot(t_bin, heisenberg_pbar_bin, marker='D', linestyle='-', label='Heisenberg (pbar)', color='goldenrod')
     plt.plot(t_bin, e_bin, marker='*', linestyle='-', label='Total', color='gray', markersize=12)
     plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'$E_i(t)$ (a.u.)')
+    plt.ylabel(r'$\tilde{E}_{i,\Delta t}(t)$ (a.u.)')
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)
     plt.legend(loc='center left', bbox_to_anchor=(1.04, 0.5), borderaxespad=0)
@@ -505,7 +505,7 @@ if PARTICLE_ENERGIES:
     t_bin, pbar_bin = bin_average(t_arr, E_pbar, MEDIAN_DT)
     plt.plot(t_bin, pbar_bin, marker='o', linestyle='-', label='Antiproton', color='black')
     plt.xlabel(r'$t$ (a.u.)')
-    plt.ylabel(r'Particle energy (a.u.)')
+    plt.ylabel(r'$\tilde{E}_{p,\Delta t}(t)$ (a.u.)')
     plt.legend()
     plt.tick_params(axis='both', which='both', direction='in', top=True, right=True)
     plt.grid(True, which='both', linestyle='--', linewidth=1, alpha=0.5)

@@ -51,11 +51,11 @@ RESULTS_DIR = 'CAP_EVO_{}_TIME_{:d}_HPC'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
 PLOT_ID = "0"
-PLOT_POSITION = True
+PLOT_POSITION = False
 PLOT_MOMENTUM = False
 PLOT_ENERGY = False
-PLOT_COMPONENTS = False
+PLOT_COMPONENTS = True
 PLOT_GIF = False
-PARTICLE_ENERGIES = False  # Plot particle energies
+PARTICLE_ENERGIES = True  # Plot particle energies
 N_FRAMES = T_STEP  # Number of frames for the GIF
 FPS = 30  # Frames per second for the GIF
