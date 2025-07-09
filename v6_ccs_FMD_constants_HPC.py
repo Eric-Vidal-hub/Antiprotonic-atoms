@@ -11,6 +11,7 @@ XI_P = 2.767          # Tuning parameter for the Pauli potential
 # XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
 # XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
 
+# Fitting parameters
 ALPHA_H = 2.0
 ALPHA_P = 1.0
 XI_H = 0.9343

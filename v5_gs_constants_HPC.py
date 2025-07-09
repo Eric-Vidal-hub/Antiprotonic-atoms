@@ -10,6 +10,9 @@ XI_P = 2.767
 # XI_H /= (1 + 1 / (2 * ALPHA))**0.5
 # XI_P /= (1 + 1 / (2 * ALPHA))**0.5
 
+P_NUM = 2   # Proton number
+DIFF_P_E = 0  # Difference in proton number and electron number
+
 MAXITER = 20
 GTOL = 1e-4
 
@@ -28,8 +31,7 @@ ELEMENTS_LIST = [
 ]
 
 START_FILE = '01_H_01e.csv'
-END_FILE = '02_He_02e.csv'
-# END_FILE = '38_Sr_38e.csv'
+END_FILE = '19_K_19e.csv'
 
 # Default directories (can be overridden by sys.argv in scripts)
 # RESULTS_DIR = 'GS_feedback_HPC'
