@@ -2,7 +2,8 @@
 ALPHA_H = 2.0
 ALPHA_P = 1.0
 XI_H = 0.9343
-# XI_H_RYD = XI_H
+XI_H_RYD = XI_H
+# XI_H_RYD = 10000
 XI_P = 2.767
 
 # # Scaling parameters according to alpha
