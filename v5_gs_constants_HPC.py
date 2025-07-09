@@ -1,12 +1,13 @@
 # Physical and model constants
-ALPHA = 5
-XI_H = 1.000
-XI_H_RYD = 1000
-XI_P = 2.767
+ALPHA_H = 2.0
+ALPHA_P = 1.0
+XI_H = 0.9343
+# XI_H_RYD = XI_H
+# XI_P = 2.767
 
-# Scaling parameters according to alpha
-XI_H /= (1 + 1 / (2 * ALPHA))**0.5
-XI_P /= (1 + 1 / (2 * ALPHA))**0.5
+# # Scaling parameters according to alpha
+# XI_H /= (1 + 1 / (2 * ALPHA))**0.5
+# XI_P /= (1 + 1 / (2 * ALPHA))**0.5
 
 MAXITER = 20
 GTOL = 1e-4
@@ -26,14 +27,18 @@ ELEMENTS_LIST = [
 ]
 
 START_FILE = '01_H_01e.csv'
-END_FILE = '38_Sr_38e.csv'
+END_FILE = '02_He_02e.csv'
+# END_FILE = '38_Sr_38e.csv'
 
 # Default directories (can be overridden by sys.argv in scripts)
 # RESULTS_DIR = 'GS_feedback_HPC'
 # RESULTS_DIR = 'GS_alpha_HPC'
 # RESULTS_DIR = 'GS_alpha_anions_HPC'
 # RESULTS_DIR = 'GS_alpha_pos_ions_HPC'
-RESULTS_DIR = 'GS_alpha_neutral_ryd_HPC'
+# RESULTS_DIR = 'GS_alpha_neutral_ryd_HPC'
+RESULTS_DIR = 'GS_fitting_HPC'
+
+# Plotting and data directories
 DEFAULT_RESULTS_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/' + RESULTS_DIR
 DEFAULT_PLOTS_DIR = DEFAULT_RESULTS_DIR + '/plots'
 DEFAULT_NIST_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/LDA/neutrals'

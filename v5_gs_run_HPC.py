@@ -24,7 +24,7 @@ import time
 import numpy as np
 from scipy.optimize import fmin_bfgs
 from v5_gs_constants_HPC import (
-    ALPHA, XI_H, XI_P, XI_H_RYD, MAXITER, GTOL, ELEMENTS_LIST
+    ALPHA_H, ALPHA_P, XI_H, XI_P, XI_H_RYD, MAXITER, GTOL, ELEMENTS_LIST
 )
 
 
@@ -37,7 +37,7 @@ class HamiltonianOptimizer:
     optimization algorithms to find the ground state energy and
     configuration.
     """
-    def __init__(self, alpha, xi_h, xi_p, xi_h_ryd=None, seed=1234, optimizers=None):
+    def __init__(self, alpha_h, alpha_p, xi_h, xi_p, xi_h_ryd=None, seed=1234, optimizers=None):
         """Initializes the HamiltonianOptimizer.
 
         Initializes the HamiltonianOptimizer with the given parameters for
@@ -56,7 +56,8 @@ class HamiltonianOptimizer:
 
         if optimizers is None:
             optimizers = ['BFGS']
-        self.alpha = alpha
+        self.alpha_h = alpha_h
+        self.alpha_p = alpha_p
         self.xi_h = xi_h
         self.xi_p = xi_p
         self.xi_h_ryd = xi_h_ryd
@@ -144,9 +145,9 @@ class HamiltonianOptimizer:
         kin_pot = np.sum(0.5 * pp ** 2)     # Kinetic energy
         nuc_pot = -np.sum(p_num / rr)       # Nuclear-e Coulomb potential
         heisen_pot = np.sum(
-            xi_h_array ** 2 * np.exp(self.alpha *
+            xi_h_array ** 2 * np.exp(self.alpha_h *
                                     (1 - (rr * pp / xi_h_array) ** 4)) /
-            (4 * self.alpha * rr ** 2)
+            (4 * self.alpha_h * rr ** 2)
         )
         return kin_pot, nuc_pot, heisen_pot
 
@@ -193,9 +194,9 @@ class HamiltonianOptimizer:
                             (pz[i] - pz[j]) ** 2
                         )
                         pauli_pot += (
-                            self.xi_p ** 2 / (2 * self.alpha * delta_r ** 2)
+                            self.xi_p ** 2 / (2 * self.alpha_p * delta_r ** 2)
                         ) * np.exp(
-                            self.alpha * (1 - (delta_r * delta_p
+                            self.alpha_p * (1 - (delta_r * delta_p
                                                / self.xi_p) ** 4)
                         )
         return pair_pot, pauli_pot
@@ -316,7 +317,7 @@ else:
     raise ValueError(f"Invalid proton number {p_num}. It must be between 1 and {len(ELEMENTS_LIST)}.")
 
 # Initialize the HamiltonianOptimizer
-optimizer = HamiltonianOptimizer(ALPHA, XI_H, XI_P, xi_h_ryd=XI_H_RYD)
+optimizer = HamiltonianOptimizer(ALPHA_H, ALPHA_P, XI_H, XI_P, xi_h_ryd=XI_H_RYD)
 
 # Try to pick the optimized configuration of a previous element plus one rnd e
 previous_element_filename = os.path.join(
