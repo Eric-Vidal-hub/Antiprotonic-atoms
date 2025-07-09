@@ -1,14 +1,19 @@
 # Physical constants
 # Proton mass (a.u.)
 M_PBAR = 1836.152672  # antiproton mass (a.u.)
-ALPHA_H = 5             # Hardness parameter HEISENBERG potential
-ALPHA_P = 5             # Hardness parameter PAULI potential
-XI_H = 1.000          # Tuning parameter for the Heisenberg potential
+
+# ALPHA_H = 5             # Hardness parameter HEISENBERG potential
+# ALPHA_P = 5             # Hardness parameter PAULI potential
+# XI_H = 1.000          # Tuning parameter for the Heisenberg potential
 XI_P = 2.767          # Tuning parameter for the Pauli potential
 
-# Scaling parameters according to alpha
-XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
-XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
+# # Scaling parameters according to alpha
+# XI_H /= (1 + 1 / (2 * ALPHA_H))**0.5
+# XI_P /= (1 + 1 / (2 * ALPHA_P))**0.5
+
+ALPHA_H = 2.0
+ALPHA_P = 1.0
+XI_H = 0.9343
 
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
@@ -31,11 +36,17 @@ B1, B2, B3 = 1.0, 2.0, 3.0  # impact parameters (a.u.)
 
 # LOADING THE GS ATOM
 # Define the directory and file name
+FILENAME = '02_He_02e'
+# FILENAME = '03_Li_03e'
+# FILENAME = '04_Be_04e'
+DIRECTORY_ATOM = 'GS_fitting_HPC/' \
+                + FILENAME + '.csv'
+
 # FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
-FILENAME = '04_Be_04e'
-DIRECTORY_ATOM = 'GS_alpha_HPC/' \
-                + FILENAME + '.csv'
+# FILENAME = '04_Be_04e'
+# DIRECTORY_ATOM = 'GS_alpha_HPC/' \
+#                 + FILENAME + '.csv'
 
 # FILENAME = '02_He_03e'
 # DIRECTORY_ATOM = 'GS_alpha_anions_HPC/' \
@@ -47,4 +58,4 @@ DIRECTORY_ATOM = 'GS_alpha_HPC/' \
 #                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'CCS_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
+RESULTS_DIR = 'CCS_fit_{}_R0_{:.1f}_Ntraj_{:d}_HPC'.format(FILENAME, XPBAR, int(N_TRAJ))
