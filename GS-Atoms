@@ -3,7 +3,7 @@
 #SBATCH --array=0-2
 #SBATCH --cpus-per-task=1
 #SBATCH --time=30:00:00
-#SBATCH -p epyc-256
+#SBATCH -p skylake-96
 
 module load anaconda3/latest
 
