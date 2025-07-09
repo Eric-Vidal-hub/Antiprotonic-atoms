@@ -369,7 +369,10 @@ if not positive:
     )
 
 element = ELEMENTS_LIST[p_num - 1]
-output_filename = os.path.join(path, f'{p_num:02d}_{element}_{e_num:02d}e_XI_H_{XI_H:02d}_XI_P_{XI_P:02d}_ALPHA_H_{ALPHA_H:02d}_ALPHA_P_{ALPHA_P:02d}.csv')
+output_filename = os.path.join(
+    path,
+    f'{p_num:02d}_{element}_{e_num:02d}e_XI_H_{XI_H:.4f}_XI_P_{XI_P:.4f}_ALPHA_H_{ALPHA_H:.1f}_ALPHA_P_{ALPHA_P:.1f}.csv'
+)
 
 # Open the CSV file to write the results
 with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
@@ -440,3 +443,5 @@ with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
         'message': message,
         'optimal_configuration': np.array2string(optimal_config)
     })
+
+    print(f"Results for element {element} written to: {output_filename}")

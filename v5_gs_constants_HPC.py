@@ -1,20 +1,26 @@
 # Physical and model constants
-ALPHA_H = 2.0
-ALPHA_P = 1.0
-XI_H = 0.9343
-XI_H_RYD = XI_H
-# XI_H_RYD = 10000
-XI_P = 2.767
-
+# ALPHA_H = 5.0
+# ALPHA_P = 5.0
+# XI_H = 1.0
+# XI_P = 2.767
 # # Scaling parameters according to alpha
 # XI_H /= (1 + 1 / (2 * ALPHA))**0.5
 # XI_P /= (1 + 1 / (2 * ALPHA))**0.5
+
+# Fitting parameters
+ALPHA_H = 2.0
+ALPHA_P = 1.0
+XI_H = 0.9116
+XI_P = 4.066
+
+XI_H_RYD = XI_H
+# XI_H_RYD = 10000
 
 P_NUM = 2   # Proton number
 DIFF_P_E = 0  # Difference in proton number and electron number
 
 MAXITER = 20
-GTOL = 1e-4
+GTOL = 1e-6
 
 # Directory and file settings
 ELEMENTS_LIST = [
@@ -39,7 +45,7 @@ END_FILE = '19_K_19e.csv'
 # RESULTS_DIR = 'GS_alpha_anions_HPC'
 # RESULTS_DIR = 'GS_alpha_pos_ions_HPC'
 # RESULTS_DIR = 'GS_alpha_neutral_ryd_HPC'
-RESULTS_DIR = 'GS_fitting_HPC'
+RESULTS_DIR = 'GS_fitting'
 
 # Plotting and data directories
 DEFAULT_RESULTS_DIR = 'c:/Users/propietario/Documents/Antiprotonic-atoms/' + RESULTS_DIR

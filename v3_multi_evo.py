@@ -3,6 +3,7 @@ from scipy.integrate import solve_ivp
 import os
 import csv
 import time
+import glob
 from v3_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, T_MAX,
                                 N_STEP, DIRECTORY_ATOM, RESULTS_DIR)
 
@@ -167,6 +168,12 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # %% LOADING THE GS ATOM
+# Find any file in GS_fitting/ that starts with '02_He_02e'
+atom_files = glob.glob(os.path.join('GS_fitting', '02_He_02e*'))
+if not atom_files:
+    raise FileNotFoundError("No file starting with '02_He_02e' found in GS_fitting/")
+DIRECTORY_ATOM = atom_files[0]
+
 # Read the CSV file using the csv module
 MULTI_DATA = []
 with open(DIRECTORY_ATOM, mode='r') as file:
