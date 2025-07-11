@@ -3,7 +3,7 @@
 #SBATCH --array=0-15
 #SBATCH --cpus-per-task=16
 #SBATCH --time=30:00:00
-#SBATCH -p cpu idle
+#SBATCH -p cpuidle
 
 module load anaconda3/latest
 
