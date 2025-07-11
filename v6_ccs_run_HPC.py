@@ -250,7 +250,7 @@ else:
 # %% LOADING THE GS ATOM
 # Read the CSV file using the csv module
 MULTI_DATA = []
-with open(DIRECTORY_ATOM, mode='r') as file:
+with open([v for v in globals() if str(v).startswith('DIRECTORY_ATOM')][0], mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
         MULTI_DATA.append(row)

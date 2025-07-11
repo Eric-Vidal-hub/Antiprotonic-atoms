@@ -13,8 +13,8 @@ M_PBAR = 1836.152672  # antiproton mass (a.u.)
 # Fitting parameters
 ALPHA_H = 2.0
 ALPHA_P = 1.0
-XI_H = 0.9116
-XI_P = 4.066
+XI_H = 0.9343 # He
+XI_P = 4.066  # Li
 
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
@@ -25,7 +25,7 @@ N_STEP = 1000       # Number of evaluation time steps
 # LOADING THE GS ATOM
 # Define the directory and file name
 FILENAME = '02_He_02e'
-DIRECTORY_ATOM = 'GS_fitting/' + FILENAME + '.csv'
+DIRECTORY_ATOM = 'GS_specific_fitting/' + FILENAME + '.csv'
 
 # FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
@@ -43,7 +43,7 @@ DIRECTORY_ATOM = 'GS_fitting/' + FILENAME + '.csv'
 #                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'EVO_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
+RESULTS_DIR = 'EVO_specific_fit_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
 PLOT_POSITION = True
