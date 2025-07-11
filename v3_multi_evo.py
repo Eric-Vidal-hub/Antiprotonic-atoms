@@ -4,7 +4,7 @@ import os
 import csv
 import time
 import glob
-from v3_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, T_MAX,
+from v3_multi_constants import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, XI_H_RYD, T_MAX,
                                 N_STEP, DIRECTORY_ATOM, RESULTS_DIR)
 
 

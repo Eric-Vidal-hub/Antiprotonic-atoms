@@ -16,6 +16,8 @@ ALPHA_P = 1.0
 XI_H = 0.9343 # He
 XI_P = 4.066  # Li
 
+XI_H_RYD = 1e5
+
 print(f"XI_H: {XI_H}, XI_P: {XI_P}")
 
 # Simulation parameters
