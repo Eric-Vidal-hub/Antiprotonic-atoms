@@ -27,6 +27,7 @@ from v6_ccs_FMD_constants_HPC import (M_PBAR, ALPHA_H, XI_H, ALPHA_P, XI_P, MIN_
                                   AUTO_BMAX, THRESH_1, THRESH_2, T_MEAN)
 import concurrent.futures
 import time
+import glob
 
 
 start_time = time.time()
@@ -250,7 +251,11 @@ else:
 # %% LOADING THE GS ATOM
 # Read the CSV file using the csv module
 MULTI_DATA = []
-with open([v for v in globals() if str(v).startswith('DIRECTORY_ATOM')][0], mode='r') as file:
+# Find the first file that starts with DIRECTORY_ATOM
+atom_files = glob.glob(DIRECTORY_ATOM + '*')
+if not atom_files:
+    raise FileNotFoundError(f"No file starting with '{DIRECTORY_ATOM}' found.")
+with open(atom_files[0], mode='r', encoding='utf-8') as file:
     reader = csv.DictReader(file)
     for row in reader:
         MULTI_DATA.append(row)

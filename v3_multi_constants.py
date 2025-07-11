@@ -25,7 +25,7 @@ N_STEP = 1000       # Number of evaluation time steps
 # LOADING THE GS ATOM
 # Define the directory and file name
 FILENAME = '02_He_02e'
-DIRECTORY_ATOM = 'GS_fitting/' + FILENAME + '.csv'
+DIRECTORY_ATOM = 'Ryd_1e5/' + FILENAME + '.csv'
 
 # FILENAME = '02_He_02e'
 # FILENAME = '03_Li_03e'
@@ -43,7 +43,7 @@ DIRECTORY_ATOM = 'GS_fitting/' + FILENAME + '.csv'
 #                 + FILENAME + '.csv'
 
 # Load RESULTS FOR PLOTTING from the CSV file in the directory:
-RESULTS_DIR = 'EVO_fit_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
+RESULTS_DIR = 'EVO_Ryd_1e5_{}_TIME_{:d}_RND'.format(FILENAME, int(T_MAX))
 
 # Plot control flags
 PLOT_POSITION = True

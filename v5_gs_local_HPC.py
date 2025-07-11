@@ -360,13 +360,6 @@ if not positive:
     ini_config[3 * e_num:4 * e_num] = np.abs(
         ini_config[3 * e_num:4 * e_num]
     )
-    ini_config[:e_num] = np.where(
-        ini_config[:e_num] > 50, 1, ini_config[:e_num]
-    )
-    ini_config[3 * e_num:4 * e_num] = np.where(
-        ini_config[3 * e_num:4 * e_num] > 50, 1,
-        ini_config[3 * e_num:4 * e_num]
-    )
 
 element = ELEMENTS_LIST[p_num - 1]
 output_filename = os.path.join(
